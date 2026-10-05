@@ -1,11 +1,13 @@
-const CACHE_NAME = 'print3d-erp-v17';
+const CACHE_NAME = 'print3d-erp-v18';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/css/styles.css',
-  '/js/app.js',
-  '/manifest.json',
-  '/img/icon.svg',
+  './',
+  './index.html',
+  './css/styles.css',
+  './js/app.js',
+  './manifest.json',
+  './img/icon-192.png',
+  './img/icon-512.png',
+  './img/icon.svg',
   'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Outfit:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
@@ -41,8 +43,8 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((response) => {
       return response || fetch(event.request).catch(() => {
-        if (event.request.headers.get('accept').includes('text/html')) {
-          return caches.match('/index.html');
+        if (event.request.headers.get('accept')?.includes('text/html')) {
+          return caches.match('./index.html') || caches.match('./');
         }
       });
     })

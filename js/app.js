@@ -2109,16 +2109,36 @@ window.addEventListener('appinstalled', () => {
 });
 
 function triggerPWAInstall() {
+    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+        showToast('¡La app ya está instalada en tu dispositivo!', 'success');
+        return;
+    }
+
     if (deferredPWAInstallPrompt) {
         deferredPWAInstallPrompt.prompt();
         deferredPWAInstallPrompt.userChoice.then((choiceResult) => {
             if (choiceResult && choiceResult.outcome === 'accepted') {
-                showToast('¡Instalando Print3D Studio!', 'success');
+                showToast('¡Instalando Print3D Studio en tu móvil!', 'success');
             }
             deferredPWAInstallPrompt = null;
         });
     } else {
         openMobileGuideModal();
+    }
+}
+
+function triggerPWAInstallDirect() {
+    if (deferredPWAInstallPrompt) {
+        deferredPWAInstallPrompt.prompt();
+        deferredPWAInstallPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult && choiceResult.outcome === 'accepted') {
+                showToast('¡Instalando Print3D Studio en tu móvil!', 'success');
+            }
+            deferredPWAInstallPrompt = null;
+        });
+        closeModal('modal-mobile-guide');
+    } else {
+        showToast('En Chrome, toca los 3 puntos (⋮) de arriba ➔ "Instalar aplicación"', 'info');
     }
 }
 
@@ -4604,6 +4624,7 @@ window.clearSignaturePad = clearSignatureCanvas;
 window.toggleSidebar = toggleSidebar;
 window.switchMobileTab = switchMobileTab;
 window.triggerPWAInstall = triggerPWAInstall;
+window.triggerPWAInstallDirect = triggerPWAInstallDirect;
 
 
 
