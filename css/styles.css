@@ -3688,7 +3688,7 @@ body.sidebar-open-locked {
   background: rgba(4, 7, 16, 0.75);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  z-index: 1400;
+  z-index: 1900 !important;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -3696,9 +3696,9 @@ body.sidebar-open-locked {
 }
 
 .sidebar-backdrop.active {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
 }
 
 /* Close button inside sidebar for mobile */
@@ -3889,21 +3889,18 @@ body.sidebar-open-locked {
     max-width: 85vw !important;
     height: 100% !important;
     height: 100dvh !important;
-    z-index: 1500 !important;
+    z-index: 2000 !important;
     transform: translateX(-100%) !important;
-    visibility: hidden;
-    pointer-events: none;
-    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.28s !important;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
     box-shadow: 10px 0 30px rgba(0, 0, 0, 0.7) !important;
     padding-bottom: calc(20px + env(safe-area-inset-bottom, 16px)) !important;
     overflow-y: auto !important;
+    background-color: #0b1220 !important;
   }
 
   .sidebar.mobile-open,
   .sidebar.active {
     transform: translateX(0) !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
   }
 
   .brand-header {
@@ -3913,15 +3910,47 @@ body.sidebar-open-locked {
     gap: 10px !important;
   }
 
-  /* Form inputs font-size fix to prevent Android Chrome auto-zoom */
+  /* Form inputs & selects font-size fix to prevent Android Chrome auto-zoom */
   input.form-control,
-  select.form-select,
   textarea.form-control,
   .spotlight-input {
     font-size: 16px !important;
     min-height: 44px !important;
     padding: 8px 12px !important;
     border-radius: 10px !important;
+  }
+
+  select.form-select {
+    font-size: 16px !important;
+    min-height: 44px !important;
+    padding: 8px 36px 8px 12px !important;
+    border-radius: 10px !important;
+    cursor: pointer !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    background-color: rgba(13, 21, 38, 0.95) !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2300d2ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 16px !important;
+    color: #f1f5f9 !important;
+  }
+
+  select.form-select option {
+    background-color: #0d1526 !important;
+    color: #f1f5f9 !important;
+    padding: 10px !important;
+  }
+
+  .kpi-reorder {
+    opacity: 0.8 !important;
+  }
+
+  .kpi-reorder button {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 11px !important;
+    border-radius: 6px !important;
   }
 
   /* Grid columns become clean single column */

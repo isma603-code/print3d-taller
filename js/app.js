@@ -223,16 +223,6 @@ function initEventListeners() {
         });
     });
 
-    // Mobile Sidebar Toggle
-    const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
-    if (btnToggleSidebar) {
-        btnToggleSidebar.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleSidebar();
-        });
-    }
-
     // Quick Data Management Buttons
     document.getElementById('btn-seed-data')?.addEventListener('click', () => seedDemoData(true));
     document.getElementById('btn-export-json')?.addEventListener('click', exportStateJSON);
@@ -4625,6 +4615,19 @@ window.toggleSidebar = toggleSidebar;
 window.switchMobileTab = switchMobileTab;
 window.triggerPWAInstall = triggerPWAInstall;
 window.triggerPWAInstallDirect = triggerPWAInstallDirect;
+window.moveKpiCard = moveKpiCard;
+window.toggleOrderExtraOptions = toggleOrderExtraOptions;
+window.switchAgendaView = switchAgendaView;
+window.changeCalendarMonth = changeCalendarMonth;
+window.goToToday = goToToday;
+window.closeAgendaDayDetail = closeAgendaDayDetail;
+window.openAddSpareModal = openAddSpareModal;
+window.previewCatalogPhoto = previewCatalogPhoto;
+window.saveCatalogItem = saveCatalogItem;
+window.filterCatalogCategory = filterCatalogCategory;
+window.renderCatalog = renderCatalog;
+window.shareCalcQuoteWhatsApp = shareCalcQuoteWhatsApp;
+window.exportCatalogPDF = exportCatalogPDF;
 
 
 
