@@ -105,6 +105,9 @@
         <a href="#" class="nav-item btn-pwa-install-item" onclick="triggerPWAInstall(); toggleSidebar(false); return false;" style="background: rgba(0, 210, 255, 0.1); border: 1px solid rgba(0, 210, 255, 0.3); color: #38bdf8; font-weight: 700;">
           <i class="fa-solid fa-mobile-screen-button text-cyan"></i> 📲 Instalar App en tu Móvil
         </a>
+        <a href="#" class="nav-item" onclick="openCloudSyncModal(); toggleSidebar(false); return false;" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.35); color: #34d399; font-weight: 700;">
+          <i class="fa-solid fa-cloud-arrow-up text-emerald"></i> ☁️ Nube PC ⟷ Móvil
+        </a>
         <a href="#" class="nav-item" onclick="openQRScanner(); toggleSidebar(false); return false;">
           <i class="fa-solid fa-qrcode text-cyan"></i> Escáner QR de Bobinas
         </a>
@@ -207,6 +210,9 @@
               </button>
               <button class="btn-outline btn-md" onclick="triggerPWAInstall()" style="border-color: rgba(0, 210, 255, 0.4); color: var(--primary);">
                 <i class="fa-solid fa-mobile-screen-button"></i> 📲 Instalar App
+              </button>
+              <button class="btn-outline btn-md" onclick="openCloudSyncModal()" style="border-color: rgba(16, 185, 129, 0.4); color: #34d399;">
+                <i class="fa-solid fa-cloud-arrow-up"></i> ☁️ Nube PC ⟷ Móvil
               </button>
             </div>
           </div>
@@ -698,9 +704,9 @@
 
               <div id="file-dropzone" class="file-dropzone mb-4" style="border: 2px dashed #3a4b73; border-radius: 8px; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.3s;">
                 <i class="fa-solid fa-cloud-arrow-up text-primary" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                <h5>Arrastra tu archivo 3D aquí</h5>
-                <p class="text-sm text-gray">o haz clic para seleccionar (STL, OBJ)</p>
-                <input type="file" id="calc-file-input" accept=".stl,.obj" style="display: none;">
+                <h5>Arrastra tu archivo 3D o G-Code aquí</h5>
+                <p class="text-sm text-gray">o haz clic para seleccionar (G-Code, 3MF, STL, OBJ)</p>
+                <input type="file" id="calc-file-input" accept=".gcode,.3mf,.stl,.obj,.txt" style="display: none;">
               </div>
 
               <div class="preset-pills-row mb-4" style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -800,6 +806,31 @@
                     <button class="btn-outline w-100 btn-md mt-2" onclick="openCalcBudgetModal()" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">
                       <i class="fa-solid fa-file-pdf"></i> Generar Presupuesto Formal (PDF)
                     </button>
+
+                    <!-- Proyecto Multi-Pieza (Ensamblajes) -->
+                    <div class="mt-3 p-3 rounded" style="background: rgba(0, 210, 255, 0.05); border: 1px solid rgba(0, 210, 255, 0.25);">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-xs fw-bold text-cyan"><i class="fa-solid fa-puzzle-piece mr-1"></i> Ensamblaje / Proyecto Multi-Pieza</span>
+                        <button type="button" class="btn-outline btn-xs" onclick="addCurrentPieceToAssembly()" style="border-color: rgba(0,210,255,0.4); color: var(--primary); font-weight: 700;">
+                          <i class="fa-solid fa-plus"></i> Añadir Pieza
+                        </button>
+                      </div>
+                      <div id="assembly-pieces-list" class="d-flex flex-column gap-2 mb-2">
+                        <div class="text-xs text-muted text-center py-2" id="assembly-empty-msg">No hay piezas en el proyecto. Calcula una pieza arriba y pulsa "Añadir Pieza".</div>
+                      </div>
+                      <div id="assembly-total-bar" class="p-2 rounded bg-dark border border-secondary d-none justify-content-between align-items-center text-xs">
+                        <div>
+                          <strong class="text-white" id="assembly-total-count">0 piezas</strong>
+                          <span class="text-muted ml-1" id="assembly-total-stats">(0g • 0h)</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                          <strong class="text-emerald text-sm" id="assembly-total-price">0.00 €</strong>
+                          <button type="button" class="btn-success btn-xs" onclick="convertAssemblyToOrder()" style="font-weight: 700;">
+                            <i class="fa-solid fa-cart-plus"></i> Crear Encargo
+                          </button>
+                        </div>
+                      </div>
+                    </div>
 
                     <!-- Feature 11: Descuentos por Volumen / Escala de Precios -->
                     <div class="mt-3 p-3 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08);">
@@ -2270,6 +2301,59 @@
       <div class="modal-footer">
         <button class="btn-outline" onclick="closeModal('modal-spool-scale')">Cancelar</button>
         <button class="btn-success" onclick="applySpoolScaleWeight()"><i class="fa-solid fa-check"></i> Aplicar Peso a la Bobina</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Cloud Sync PC <-> Móvil -->
+  <div id="modal-cloud-sync" class="modal-overlay">
+    <div class="modal-content" style="max-width: 540px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-cloud-arrow-up text-emerald mr-2"></i> Sincronización en la Nube (PC ⟷ Móvil)</h4>
+        <button class="modal-close" onclick="closeModal('modal-cloud-sync')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-sm text-muted mb-3">
+          Sincroniza tus pedidos, bobinas, clientes y ajustes entre tu ordenador y tu teléfono sin perder ningún dato.
+        </p>
+
+        <!-- Opción 1: Enlace de Transferencia Inmediata -->
+        <div class="p-3 rounded mb-3" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3);">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <i class="fa-solid fa-wand-magic-sparkles text-emerald"></i>
+            <strong class="text-white text-sm">Opción A: Enlace Rápido de Sincronización</strong>
+          </div>
+          <p class="text-xs text-muted mb-2">
+            Genera un enlace con todos los datos de tu taller para abrirlo en tu móvil o enviártelo por WhatsApp. Al abrirlo, tu móvil se actualizará al instante:
+          </p>
+          <button type="button" class="btn-success w-100 btn-sm mb-2" onclick="generateDirectSyncLink()" style="font-weight: 700;">
+            <i class="fa-solid fa-share-nodes"></i> Generar y Copiar Enlace Directo
+          </button>
+          <div id="sync-link-preview-box" style="display: none;" class="mt-2">
+            <input type="text" id="sync-direct-url" class="form-control text-xs mb-1" readonly onclick="this.select()">
+            <button type="button" class="btn-outline btn-xs w-100" onclick="shareSyncLinkWhatsApp()">
+              <i class="fa-brands fa-whatsapp text-emerald"></i> Enviármelo por WhatsApp
+            </button>
+          </div>
+        </div>
+
+        <!-- Opción 2: Código / Clave de Taller -->
+        <div class="p-3 rounded mb-2" style="background: rgba(0, 210, 255, 0.05); border: 1px solid rgba(0, 210, 255, 0.2);">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <i class="fa-solid fa-key text-cyan"></i>
+            <strong class="text-white text-sm">Opción B: Pegar Datos de Sincronización</strong>
+          </div>
+          <p class="text-xs text-muted mb-2">
+            Pega el código o enlace recibido de tu otro dispositivo para volcar todos los datos aquí:
+          </p>
+          <textarea id="sync-payload-input" class="form-control text-xs mb-2" rows="2" placeholder="Pega aquí el código o enlace de sincronización..."></textarea>
+          <button type="button" class="btn-primary w-100 btn-sm" onclick="applySyncPayload()" style="font-weight: 700;">
+            <i class="fa-solid fa-download"></i> Cargar Datos en este Dispositivo
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" onclick="closeModal('modal-cloud-sync')">Cerrar</button>
       </div>
     </div>
   </div>

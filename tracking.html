@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#060a14">
+  <title>Seguimiento de Encargo | Print3D Studio</title>
+  <link rel="icon" type="image/svg+xml" href="img/icon.svg">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome 6.4.0 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --bg: #060a14;
+      --card-bg: rgba(13, 21, 38, 0.95);
+      --border: rgba(255, 255, 255, 0.1);
+      --primary: #00d2ff;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --purple: #a855f7;
+      --text: #f1f5f9;
+      --text-dim: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: radial-gradient(circle at 50% 0%, #0d1a33 0%, #060a14 100%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px 14px 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 540px;
+      margin: 0 auto;
+    }
+
+    .brand-header {
+      text-align: center;
+      margin-bottom: 24px;
+      padding-top: 10px;
+    }
+
+    .brand-logo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--purple));
+      font-size: 24px;
+      color: #fff;
+      margin-bottom: 10px;
+      box-shadow: 0 0 20px rgba(0, 210, 255, 0.4);
+    }
+
+    .brand-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-sub {
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    .tracking-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 22px 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      margin-bottom: 16px;
+    }
+
+    .order-badge-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .order-id-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--primary);
+      background: rgba(0, 210, 255, 0.1);
+      border: 1px solid rgba(0, 210, 255, 0.25);
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-weight: 700;
+    }
+
+    .order-item-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+
+    .order-client-name {
+      font-size: 13px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 18px;
+    }
+
+    .order-photo-container {
+      width: 100%;
+      height: 200px;
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 18px;
+      background: #000;
+      border: 1px solid var(--border);
+    }
+
+    .order-photo-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* Live Stepper */
+    .timeline {
+      position: relative;
+      margin: 20px 0 10px 8px;
+      padding-left: 28px;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      bottom: 24px;
+      width: 2px;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .timeline-step {
+      position: relative;
+      margin-bottom: 22px;
+    }
+
+    .timeline-step:last-child {
+      margin-bottom: 0;
+    }
+
+    .timeline-dot {
+      position: absolute;
+      left: -28px;
+      top: 2px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #111a2e;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: var(--text-dim);
+      transition: all 0.3s ease;
+    }
+
+    .timeline-step.completed .timeline-dot {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+    }
+
+    .timeline-step.active .timeline-dot {
+      background: var(--primary);
+      border-color: #fff;
+      color: #000;
+      box-shadow: 0 0 16px rgba(0, 210, 255, 0.8);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 210, 255, 0.6); }
+      70% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(0, 210, 255, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 210, 255, 0); }
+    }
+
+    .step-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-dim);
+    }
+
+    .timeline-step.completed .step-title {
+      color: var(--text);
+    }
+
+    .timeline-step.active .step-title {
+      color: var(--primary);
+      font-size: 16px;
+    }
+
+    .step-desc {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    .eta-box {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(0, 210, 255, 0.08);
+      border: 1px solid rgba(0, 210, 255, 0.25);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+    }
+
+    .eta-box i {
+      font-size: 20px;
+      color: var(--primary);
+    }
+
+    .contact-btn {
+      width: 100%;
+      min-height: 48px;
+      border-radius: 14px;
+      background: #25d366;
+      color: #fff;
+      font-weight: 700;
+      font-size: 15px;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(37, 211, 102, 0.3);
+      transition: transform 0.15s ease;
+      margin-top: 10px;
+    }
+
+    .contact-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="brand-header">
+      <div class="brand-logo"><i class="fa-solid fa-cubes-stacked"></i></div>
+      <div class="brand-title">Print3D Studio</div>
+      <div class="brand-sub">Portal Oficial de Seguimiento del Taller</div>
+    </div>
+
+    <div class="tracking-card" id="tracking-content">
+      <div class="order-badge-row">
+        <span class="order-id-badge" id="order-id-display">PEDIDO #---</span>
+        <span id="status-pill" style="font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; background: rgba(0,210,255,0.15); color: #00d2ff;">
+          <i class="fa-solid fa-circle" style="font-size: 8px; margin-right: 4px;"></i> Consultando estado...
+        </span>
+      </div>
+
+      <div class="order-item-title" id="order-item-display">Cargando pieza...</div>
+      <div class="order-client-name"><i class="fa-solid fa-user"></i> <span id="order-client-display">Cliente</span></div>
+
+      <div class="order-photo-container" id="order-photo-wrap" style="display: none;">
+        <img id="order-photo-img" src="" alt="Foto de la pieza">
+      </div>
+
+      <!-- Timeline Stepper -->
+      <div class="timeline">
+        <div class="timeline-step" id="step-pending">
+          <div class="timeline-dot"><i class="fa-solid fa-check"></i></div>
+          <div class="step-title">1. Presupuesto Aceptado</div>
+          <div class="step-desc">El encargo está confirmado y registrado en el taller.</div>
+        </div>
+
+        <div class="timeline-step" id="step-en-cola">
+          <div class="timeline-dot"><i class="fa-solid fa-clock"></i></div>
+          <div class="step-title">2. En Cola de Impresión</div>
+          <div class="step-desc">Modelo laminado, a la espera de impresora 3D disponible.</div>
+        </div>
+
+        <div class="timeline-step" id="step-printing">
+          <div class="timeline-dot"><i class="fa-solid fa-print"></i></div>
+          <div class="step-title">3. Imprimiendo en el Taller</div>
+          <div class="step-desc">Fabricando capa a capa con control térmico activo.</div>
+        </div>
+
+        <div class="timeline-step" id="step-post">
+          <div class="timeline-dot"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+          <div class="step-title">4. Post-Proceso y Limpieza</div>
+          <div class="step-desc">Retirada de soportes, curado y control de calidad final.</div>
+        </div>
+
+        <div class="timeline-step" id="step-done">
+          <div class="timeline-dot"><i class="fa-solid fa-box-check"></i></div>
+          <div class="step-title">5. ¡Listo para Entrega o Envío!</div>
+          <div class="step-desc">La pieza está terminada y lista para recoger o enviar.</div>
+        </div>
+      </div>
+
+      <div class="eta-box" id="eta-box" style="display: none;">
+        <i class="fa-solid fa-calendar-check"></i>
+        <div>
+          <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; font-weight: 700;">Fecha Estimada de Entrega:</div>
+          <strong id="eta-date" style="color: #fff; font-size: 14px;">---</strong>
+        </div>
+      </div>
+
+      <a id="btn-whatsapp-taller" href="#" target="_blank" class="contact-btn">
+        <i class="fa-brands fa-whatsapp"></i> Contactar con el Taller por WhatsApp
+      </a>
+    </div>
+
+    <div class="footer">
+      Print3D Studio Master Edition • Gestión de Impresión 3D Profesional
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      // Parse parameters: either ?data=... (base64 JSON) or ?id=... (local state lookup)
+      const urlParams = new URLSearchParams(window.location.search);
+      let order = null;
+
+      const dataParam = urlParams.get('data');
+      if (dataParam) {
+        try {
+          order = JSON.parse(decodeURIComponent(escape(atob(dataParam))));
+        } catch(e) {
+          console.warn('Error decoding data param:', e);
+        }
+      }
+
+      if (!order) {
+        const idParam = urlParams.get('id');
+        if (idParam) {
+          try {
+            const raw = localStorage.getItem('PRINT3D_ERP_STATE_V7');
+            if (raw) {
+              const state = JSON.parse(raw);
+              if (state && state.orders) {
+                order = state.orders.find(o => o.id === idParam || o.id.startsWith(idParam));
+              }
+            }
+          } catch(e) {}
+        }
+      }
+
+      if (!order) {
+        // Fallback demo order for preview
+        order = {
+          id: 'ORD-DEMO',
+          title: 'Encargo de Impresión 3D Personalizado',
+          client: 'Cliente VIP',
+          status: 'Imprimiendo',
+          deadline: new Date(Date.now() + 86400000).toISOString().split('T')[0]
+        };
+      }
+
+      // Populate view
+      document.getElementById('order-id-display').textContent = 'PEDIDO #' + (order.id ? order.id.substring(0, 8).toUpperCase() : '---');
+      document.getElementById('order-item-display').textContent = order.title || 'Pieza 3D';
+      document.getElementById('order-client-display').textContent = order.client || 'Cliente';
+
+      if (order.photo) {
+        document.getElementById('order-photo-img').src = order.photo;
+        document.getElementById('order-photo-wrap').style.display = 'block';
+      }
+
+      if (order.deadline) {
+        const d = new Date(order.deadline);
+        document.getElementById('eta-date').textContent = d.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        document.getElementById('eta-box').style.display = 'flex';
+      }
+
+      // WhatsApp Contact button
+      const cleanTitle = encodeURIComponent(order.title || 'mi encargo');
+      document.getElementById('btn-whatsapp-taller').href = `https://wa.me/?text=Hola,%20tengo%20una%20consulta%20sobre%20el%20pedido%20%23${order.id || ''}%20(${cleanTitle})`;
+
+      // Status mapping and stepper
+      const statusMap = {
+        'Presupuesto': 1,
+        'pending': 1,
+        'En Cola': 2,
+        'en-cola': 2,
+        'Imprimiendo': 3,
+        'printing': 3,
+        'Post-Proceso': 4,
+        'post': 4,
+        'Listo': 5,
+        'done': 5,
+        'Entregado': 5,
+        'delivered': 5
+      };
+
+      const stepNum = statusMap[order.status] || 1;
+      const steps = [
+        { id: 'step-pending', num: 1 },
+        { id: 'step-en-cola', num: 2 },
+        { id: 'step-printing', num: 3 },
+        { id: 'step-post', num: 4 },
+        { id: 'step-done', num: 5 }
+      ];
+
+      steps.forEach(s => {
+        const el = document.getElementById(s.id);
+        if (s.num < stepNum) {
+          el.classList.add('completed');
+        } else if (s.num === stepNum) {
+          el.classList.add('active');
+        }
+      });
+
+      const pill = document.getElementById('status-pill');
+      if (stepNum === 5) {
+        pill.style.background = 'rgba(16, 185, 129, 0.2)';
+        pill.style.color = '#10b981';
+        pill.innerHTML = '<i class="fa-solid fa-circle-check"></i> ¡Listo!';
+      } else if (stepNum === 3) {
+        pill.style.background = 'rgba(0, 210, 255, 0.2)';
+        pill.style.color = '#00d2ff';
+        pill.innerHTML = '<i class="fa-solid fa-print"></i> Imprimiendo';
+      } else {
+        pill.textContent = order.status || 'En progreso';
+      }
+    })();
+  </script>
+</body>
+</html>

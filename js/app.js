@@ -35,6 +35,7 @@ let currentAgendaView = 'month';
 
 document.addEventListener('DOMContentLoaded', () => {
     loadState();
+    checkAutoSyncParam();
     if (state.filaments.length === 0) {
         seedDemoData(false);
     }
@@ -735,6 +736,7 @@ function renderOrdersKanban() {
                 <div class="kanban-card-actions">
                     <button onclick="editOrder('${o.id}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
                     <button onclick="advanceOrderStatus('${o.id}')" title="Avanzar Estado" class="text-cyan"><i class="fa-solid fa-arrow-right"></i></button>
+                    <button onclick="shareClientTracking('${o.id}')" title="Portal Seguimiento Cliente (WhatsApp)" class="text-cyan"><i class="fa-solid fa-satellite-dish"></i></button>
                     <button onclick="openBudgetModal('${o.id}')" title="Presupuesto Formal (PDF)"><i class="fa-solid fa-file-pdf text-amber"></i></button>
                     <button onclick="openDeliveryNoteModal('${o.id}')" title="Albarán de Entrega (sin precios)"><i class="fa-solid fa-truck-ramp-box text-cyan"></i></button>
                     <button onclick="openWhatsAppStatusModal('${o.id}')" title="Mensajes Rápidos WhatsApp" class="text-emerald"><i class="fa-brands fa-whatsapp"></i></button>
@@ -781,6 +783,7 @@ function renderOrdersTable() {
             <td>
                 <div style="display:flex; gap:6px;">
                     <button class="btn btn-outline btn-xs" onclick="editOrder('${o.id}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn btn-outline btn-xs" onclick="shareClientTracking('${o.id}')" title="Portal Seguimiento Cliente" style="color:#06b6d4;"><i class="fa-solid fa-satellite-dish"></i></button>
                     <button class="btn btn-outline btn-xs" onclick="openBudgetModal('${o.id}')" title="Presupuesto Formal (PDF)"><i class="fa-solid fa-file-pdf text-amber"></i></button>
                     <button class="btn btn-outline btn-xs" onclick="openDeliveryNoteModal('${o.id}')" title="Albarán"><i class="fa-solid fa-truck-ramp-box text-cyan"></i></button>
                     <button class="btn btn-outline btn-xs" onclick="openWhatsAppStatusModal('${o.id}')" title="WhatsApp"><i class="fa-brands fa-whatsapp text-emerald"></i></button>
@@ -968,17 +971,17 @@ function filterCatalogCategory(cat) {
 
 function previewCatalogPhoto(input) {
     if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            window._catalogPhotoData = e.target.result;
+        const file = input.files[0];
+        compressImage(file, 800, 0.75, function(compressedData) {
+            window._catalogPhotoData = compressedData;
             const preview = document.getElementById('catalog-photo-preview');
             const wrap = document.getElementById('catalog-photo-preview-wrap');
             if (preview && wrap) {
-                preview.src = e.target.result;
+                preview.src = compressedData;
                 wrap.style.display = 'block';
             }
-        };
-        reader.readAsDataURL(input.files[0]);
+            showToast('📸 Foto de catálogo optimizada', 'info');
+        });
     }
 }
 
@@ -2163,18 +2166,56 @@ window.selectPicker = function(prefix, id) {
     calculateOrderSuggestedPrice();
 };
 
+function compressImage(file, maxDimension = 800, quality = 0.75, callback) {
+    if (!file || !file.type.startsWith('image/')) {
+        if (callback) callback(null);
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            let width = img.width;
+            let height = img.height;
+            if (width > height) {
+                if (width > maxDimension) {
+                    height = Math.round((height * maxDimension) / width);
+                    width = maxDimension;
+                }
+            } else {
+                if (height > maxDimension) {
+                    width = Math.round((width * maxDimension) / height);
+                    height = maxDimension;
+                }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL('image/jpeg', quality);
+            if (callback) callback(compressed);
+        };
+        img.onerror = function() {
+            if (callback) callback(e.target.result);
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
 function previewOrderPhoto(input) {
     if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            window._orderPhotoData = e.target.result;
+        const file = input.files[0];
+        compressImage(file, 800, 0.75, function(compressedData) {
+            window._orderPhotoData = compressedData;
             const preview = document.getElementById('order-photo-preview');
             if (preview) {
-                preview.src = e.target.result;
+                preview.src = compressedData;
                 preview.style.display = 'block';
             }
-        };
-        reader.readAsDataURL(input.files[0]);
+            showToast('📸 Foto optimizada para el taller', 'info');
+        });
     }
 }
 
@@ -2669,6 +2710,178 @@ window.convertCalcToOrder = function() {
     }, 60);
 };
 
+// --- PROYECTO MULTI-PIEZA / ENSAMBLAJES ---
+window.assemblyPieces = window.assemblyPieces || [];
+
+window.addCurrentPieceToAssembly = function() {
+    const name = document.getElementById('calc-item-name')?.value?.trim() || `Pieza #${window.assemblyPieces.length + 1}`;
+    const weight = parseFloat(document.getElementById('calc-weight')?.value) || 0;
+    const time = parseFloat(document.getElementById('calc-time')?.value) || 0;
+    const priceText = document.getElementById('calc-suggested-price')?.textContent || '0 €';
+    const price = parseFloat(priceText.replace('€', '').trim()) || 0;
+
+    if (weight <= 0 && time <= 0) {
+        showToast('Introduce al menos peso o tiempo para agregar la pieza', 'warning');
+        return;
+    }
+
+    window.assemblyPieces.push({
+        name,
+        weight,
+        time,
+        price
+    });
+
+    renderAssemblyList();
+    showToast(`Pieza "${name}" agregada al ensamblaje`, 'success');
+    playChime('success');
+};
+
+window.removeAssemblyPiece = function(index) {
+    if (window.assemblyPieces && window.assemblyPieces[index] !== undefined) {
+        window.assemblyPieces.splice(index, 1);
+        renderAssemblyList();
+    }
+};
+
+window.renderAssemblyList = function() {
+    const listEl = document.getElementById('assembly-pieces-list');
+    const totalBar = document.getElementById('assembly-total-bar');
+    const totalCount = document.getElementById('assembly-total-count');
+    const totalStats = document.getElementById('assembly-total-stats');
+    const totalPrice = document.getElementById('assembly-total-price');
+
+    if (!listEl) return;
+
+    if (!window.assemblyPieces || window.assemblyPieces.length === 0) {
+        listEl.innerHTML = `<div class="text-xs text-muted text-center py-2" id="assembly-empty-msg">No hay piezas en el proyecto. Calcula una pieza arriba y pulsa "Añadir Pieza".</div>`;
+        if (totalBar) {
+            totalBar.classList.add('d-none');
+            totalBar.classList.remove('d-flex');
+        }
+        return;
+    }
+
+    let totW = 0, totT = 0, totP = 0;
+    let html = '';
+    window.assemblyPieces.forEach((p, idx) => {
+        totW += p.weight;
+        totT += p.time;
+        totP += p.price;
+        html += `
+            <div class="d-flex justify-content-between align-items-center p-2 rounded" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); font-size: 0.8rem;">
+                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 75%;">
+                    <strong class="text-white">${escapeHtml(p.name)}</strong>
+                    <div class="text-muted text-xs">${p.weight}g · ${p.time}h · <span class="text-emerald fw-bold">${p.price.toFixed(2)} €</span></div>
+                </div>
+                <button type="button" class="btn-outline btn-xs text-danger" onclick="removeAssemblyPiece(${idx})" title="Eliminar subpieza" style="border-color: rgba(239,68,68,0.3); padding: 2px 6px;">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>
+        `;
+    });
+
+    listEl.innerHTML = html;
+    if (totalBar) {
+        totalBar.classList.remove('d-none');
+        totalBar.classList.add('d-flex');
+    }
+    if (totalCount) totalCount.textContent = `${window.assemblyPieces.length} ${window.assemblyPieces.length === 1 ? 'pieza' : 'piezas'}`;
+    if (totalStats) totalStats.textContent = `(${totW.toFixed(0)}g • ${totT.toFixed(1)}h)`;
+    if (totalPrice) totalPrice.textContent = `${totP.toFixed(2)} €`;
+};
+
+window.convertAssemblyToOrder = function() {
+    if (!window.assemblyPieces || window.assemblyPieces.length === 0) {
+        showToast('El ensamblaje está vacío. Añade al menos una pieza.', 'warning');
+        return;
+    }
+
+    let totW = 0, totT = 0, totP = 0;
+    const pieceNames = window.assemblyPieces.map(p => p.name).join(' + ');
+    window.assemblyPieces.forEach(p => {
+        totW += p.weight;
+        totT += p.time;
+        totP += p.price;
+    });
+
+    const projectName = `Proyecto Ensamblaje (${window.assemblyPieces.length} piezas: ${pieceNames.length > 40 ? pieceNames.substring(0, 40) + '...' : pieceNames})`;
+
+    switchTab('tab-orders');
+    openOrderModalWithDefaults();
+
+    setTimeout(() => {
+        const itemInput = document.getElementById('order-item');
+        const weightInput = document.getElementById('order-weight');
+        const timeInput = document.getElementById('order-time');
+        const priceInput = document.getElementById('order-price');
+
+        if (itemInput) itemInput.value = projectName;
+        if (weightInput) weightInput.value = Math.round(totW);
+        if (timeInput) timeInput.value = parseFloat(totT.toFixed(1));
+        if (priceInput) priceInput.value = parseFloat(totP.toFixed(2));
+
+        showToast(`Ensamblaje volcado: ${window.assemblyPieces.length} piezas sumadas con éxito`, 'success');
+        playChime('success');
+    }, 60);
+};
+
+function parseGCodeMetadata(text) {
+    let weight = null;
+    let timeHours = null;
+
+    // 1. Filament Weight in Grams
+    // Bambu / OrcaSlicer / PrusaSlicer: ; filament used [g] = 45.23 or ; total filament used [g] : 45.23
+    const filamentGM = text.match(/;\s*(?:total\s+)?filament\s+used\s*\[g\]\s*[:=]\s*([0-9.]+)/i);
+    if (filamentGM) {
+        weight = parseFloat(filamentGM[1]);
+    } else {
+        // Simplify3D: ;   Plastic weight: 46.10 g
+        const s3dM = text.match(/;\s*Plastic weight:\s*([0-9.]+)\s*g/i);
+        if (s3dM) {
+            weight = parseFloat(s3dM[1]);
+        } else {
+            // Cura: ;Filament used: 12.35m or 12350mm (1.75mm PLA ~ 3.0g per meter)
+            const curaM = text.match(/;\s*Filament used:\s*([0-9.]+)\s*m\b/i);
+            if (curaM) {
+                weight = Math.round(parseFloat(curaM[1]) * 3.0);
+            } else {
+                const curaMm = text.match(/;\s*Filament used:\s*([0-9.]+)\s*mm\b/i);
+                if (curaMm) {
+                    weight = Math.round((parseFloat(curaMm[1]) / 1000) * 3.0);
+                }
+            }
+        }
+    }
+
+    // 2. Print Time in Hours
+    // Cura: ;TIME:7200 (seconds)
+    const curaTime = text.match(/;\s*TIME:([0-9]+)/i);
+    if (curaTime) {
+        timeHours = parseFloat((parseInt(curaTime[1], 10) / 3600).toFixed(2));
+    } else {
+        // Prusa / Bambu / Orca: ; estimated printing time (normal mode) = 3h 45m 12s
+        const estTime = text.match(/;\s*(?:model printing time|estimated printing time[^=]*)=\s*([^\r\n;]+)/i);
+        if (estTime) {
+            const timeStr = estTime[1].trim();
+            let totalH = 0;
+            const days = timeStr.match(/([0-9]+)\s*d/i);
+            const hours = timeStr.match(/([0-9]+)\s*h/i);
+            const minutes = timeStr.match(/([0-9]+)\s*m/i);
+            const seconds = timeStr.match(/([0-9]+)\s*s/i);
+
+            if (days) totalH += parseInt(days[1], 10) * 24;
+            if (hours) totalH += parseInt(hours[1], 10);
+            if (minutes) totalH += parseInt(minutes[1], 10) / 60;
+            if (seconds) totalH += parseInt(seconds[1], 10) / 3600;
+
+            if (totalH > 0) timeHours = parseFloat(totalH.toFixed(2));
+        }
+    }
+
+    return { weight, timeHours };
+}
+
 function initDropzone() {
     const dropzone = document.getElementById('file-dropzone');
     const input = document.getElementById('calc-file-input');
@@ -2701,15 +2914,44 @@ function initDropzone() {
     function handleCalcFiles(files) {
         if (files.length > 0) {
             const f = files[0];
-            showToast(`Archivo "${f.name}" cargado`, 'success');
-            const sizeInKb = f.size / 1024;
-            const weightVal = Math.max(15, Math.floor(sizeInKb / 8));
-            const timeVal = Math.max(1, parseFloat((weightVal / 22).toFixed(1)));
+            const cleanName = f.name.replace(/\.[^/.]+$/, "");
+            const ext = f.name.toLowerCase().split('.').pop();
             
-            document.getElementById('calc-weight').value = weightVal;
-            document.getElementById('calc-time').value = timeVal;
-            document.getElementById('calc-item-name').value = f.name.replace(/\.[^/.]+$/, "");
-            calculateQuote();
+            if (ext === 'gcode' || ext === '3mf' || ext === 'txt') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const text = e.target.result;
+                    const meta = parseGCodeMetadata(text);
+                    
+                    document.getElementById('calc-item-name').value = cleanName;
+                    if (meta.weight) {
+                        document.getElementById('calc-weight').value = meta.weight;
+                    }
+                    if (meta.timeHours) {
+                        document.getElementById('calc-time').value = meta.timeHours;
+                    }
+                    calculateQuote();
+                    
+                    if (meta.weight && meta.timeHours) {
+                        showToast(`⚡ G-Code analizado: ${meta.weight}g y ${meta.timeHours}h extraídos automáticamente`, 'success');
+                        playChime('success');
+                    } else {
+                        showToast(`Archivo "${f.name}" cargado`, 'info');
+                    }
+                };
+                // Read first 350KB to parse slicing headers
+                reader.readAsText(f.slice(0, 350000));
+            } else {
+                showToast(`Archivo "${f.name}" cargado`, 'success');
+                const sizeInKb = f.size / 1024;
+                const weightVal = Math.max(15, Math.floor(sizeInKb / 8));
+                const timeVal = Math.max(1, parseFloat((weightVal / 22).toFixed(1)));
+                
+                document.getElementById('calc-weight').value = weightVal;
+                document.getElementById('calc-time').value = timeVal;
+                document.getElementById('calc-item-name').value = cleanName;
+                calculateQuote();
+            }
             
             const types = ['cosplay', 'miniature', 'functional'];
             load3DGeometry(types[Math.floor(Math.random() * types.length)]);
@@ -4555,6 +4797,178 @@ function applySpoolScaleWeight() {
     playChime('success');
 }
 
+// --- PORTAL DE SEGUIMIENTO EN VIVO PARA CLIENTES ---
+function shareClientTracking(orderId) {
+    const o = state.orders.find(ord => ord.id === orderId);
+    if (!o) {
+        showToast('Encargo no encontrado', 'error');
+        return;
+    }
+
+    const payload = {
+        id: o.id,
+        title: o.title,
+        client: o.client,
+        status: o.status,
+        deadline: o.deadline || null,
+        photo: o.photo || null
+    };
+
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '').replace(/\/$/, '') + '/tracking.html';
+    const trackingLink = `${baseUrl}?data=${encodeURIComponent(b64)}`;
+
+    const text = `¡Hola ${o.client || ''}! Aquí tienes el enlace para seguir en directo el progreso de tu encargo 3D "${o.title}":\n\n${trackingLink}\n\n¡Gracias por confiar en nuestro taller! 🚀`;
+
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(trackingLink).then(() => {
+            showToast('🔗 Enlace copiado al portapapeles y abriendo WhatsApp...', 'success');
+        }).catch(() => {
+            showToast('🔗 Abriendo WhatsApp para compartir seguimiento...', 'info');
+        });
+    }
+
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, '_blank');
+}
+
+// --- SINCRONIZACIÓN EN LA NUBE (PC ⟷ MÓVIL) ---
+function openCloudSyncModal() {
+    openModal('modal-cloud-sync');
+}
+
+function generateDirectSyncLink() {
+    try {
+        const minimalState = {
+            orders: state.orders || [],
+            filaments: state.filaments || [],
+            printers: state.printers || [],
+            expenses: state.expenses || [],
+            catalog: state.catalog || [],
+            clients: state.clients || [],
+            spares: state.spares || [],
+            wastageLogs: state.wastageLogs || [],
+            electricityTariff: state.electricityTariff || 0.18,
+            monthlyRevenueGoal: state.monthlyRevenueGoal || 1500,
+            hourlyFixedCost: state.hourlyFixedCost || 1.5,
+            syncTimestamp: new Date().toISOString()
+        };
+
+        const jsonStr = JSON.stringify(minimalState);
+        const b64 = btoa(unescape(encodeURIComponent(jsonStr)));
+        const baseUrl = window.location.origin + window.location.pathname;
+        const syncUrl = `${baseUrl}?sync=${encodeURIComponent(b64)}`;
+
+        const previewBox = document.getElementById('sync-link-preview-box');
+        const urlInput = document.getElementById('sync-direct-url');
+        if (previewBox) previewBox.style.display = 'block';
+        if (urlInput) urlInput.value = syncUrl;
+
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(syncUrl).then(() => {
+                showToast('✅ ¡Enlace generado y copiado al portapapeles!', 'success');
+            }).catch(() => {
+                showToast('✅ Enlace generado. Cópialo o envíalo por WhatsApp', 'info');
+            });
+        } else {
+            showToast('✅ Enlace generado. Cópialo o envíalo por WhatsApp', 'info');
+        }
+        playChime('success');
+    } catch (err) {
+        console.error('Error generating sync link:', err);
+        showToast('Error al generar enlace de sincronización: ' + err.message, 'error');
+    }
+}
+
+function shareSyncLinkWhatsApp() {
+    const input = document.getElementById('sync-direct-url');
+    if (!input || !input.value) {
+        showToast('Genera primero el enlace', 'warning');
+        return;
+    }
+    const msg = `Taller 3D - Enlace de Sincronización PC ⟷ Móvil:\n\n${input.value}\n\n(Abre este enlace en tu móvil para tener todos los datos sincronizados al instante)`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function applySyncPayload() {
+    const textarea = document.getElementById('sync-payload-input');
+    if (!textarea || !textarea.value.trim()) {
+        showToast('Pega un enlace o código de sincronización válido', 'warning');
+        return;
+    }
+
+    try {
+        let raw = textarea.value.trim();
+        if (raw.includes('?sync=')) {
+            const urlObj = new URL(raw);
+            raw = urlObj.searchParams.get('sync') || raw;
+        }
+
+        const jsonStr = decodeURIComponent(escape(atob(raw)));
+        const imported = JSON.parse(jsonStr);
+
+        if (!imported || (!imported.orders && !imported.filaments)) {
+            throw new Error('Formato de datos no reconocido');
+        }
+
+        if (confirm('¿Deseas volcar y sincronizar los datos recibidos en este dispositivo?')) {
+            if (Array.isArray(imported.orders)) state.orders = imported.orders;
+            if (Array.isArray(imported.filaments)) state.filaments = imported.filaments;
+            if (Array.isArray(imported.printers)) state.printers = imported.printers;
+            if (Array.isArray(imported.expenses)) state.expenses = imported.expenses;
+            if (Array.isArray(imported.catalog)) state.catalog = imported.catalog;
+            if (Array.isArray(imported.clients)) state.clients = imported.clients;
+            if (Array.isArray(imported.spares)) state.spares = imported.spares;
+            if (Array.isArray(imported.wastageLogs)) state.wastageLogs = imported.wastageLogs;
+            if (imported.electricityTariff) state.electricityTariff = imported.electricityTariff;
+            if (imported.monthlyRevenueGoal) state.monthlyRevenueGoal = imported.monthlyRevenueGoal;
+            if (imported.hourlyFixedCost) state.hourlyFixedCost = imported.hourlyFixedCost;
+
+            saveState();
+            renderAll();
+            closeModal('modal-cloud-sync');
+            showToast('✅ Taller sincronizado con éxito', 'success');
+            playChime('success');
+        }
+    } catch (err) {
+        console.error('Sync error:', err);
+        showToast('Error al importar sincronización: ' + err.message, 'error');
+    }
+}
+
+function checkAutoSyncParam() {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const syncData = urlParams.get('sync');
+        if (syncData) {
+            const jsonStr = decodeURIComponent(escape(atob(syncData)));
+            const imported = JSON.parse(jsonStr);
+            if (imported && (imported.orders || imported.filaments)) {
+                if (Array.isArray(imported.orders)) state.orders = imported.orders;
+                if (Array.isArray(imported.filaments)) state.filaments = imported.filaments;
+                if (Array.isArray(imported.printers)) state.printers = imported.printers;
+                if (Array.isArray(imported.expenses)) state.expenses = imported.expenses;
+                if (Array.isArray(imported.catalog)) state.catalog = imported.catalog;
+                if (Array.isArray(imported.clients)) state.clients = imported.clients;
+                if (Array.isArray(imported.spares)) state.spares = imported.spares;
+                if (Array.isArray(imported.wastageLogs)) state.wastageLogs = imported.wastageLogs;
+                if (imported.electricityTariff) state.electricityTariff = imported.electricityTariff;
+                if (imported.monthlyRevenueGoal) state.monthlyRevenueGoal = imported.monthlyRevenueGoal;
+                if (imported.hourlyFixedCost) state.hourlyFixedCost = imported.hourlyFixedCost;
+
+                saveState();
+                showToast('🚀 ¡Taller sincronizado desde enlace directo!', 'success');
+                playChime('success');
+
+                const cleanUrl = window.location.origin + window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+        }
+    } catch (err) {
+        console.error('Error auto-syncing from URL parameter:', err);
+    }
+}
+
 // Window bindings for all newly added functions
 window.openGlobalSearch = openGlobalSearch;
 window.closeGlobalSearch = closeGlobalSearch;
@@ -4566,6 +4980,14 @@ window.openSpoolScaleModal = openSpoolScaleModal;
 window.setTarePreset = setTarePreset;
 window.calculateSpoolNetWeight = calculateSpoolNetWeight;
 window.applySpoolScaleWeight = applySpoolScaleWeight;
+
+// Cloud Sync & Tracking Bindings
+window.shareClientTracking = shareClientTracking;
+window.openCloudSyncModal = openCloudSyncModal;
+window.generateDirectSyncLink = generateDirectSyncLink;
+window.shareSyncLinkWhatsApp = shareSyncLinkWhatsApp;
+window.applySyncPayload = applySyncPayload;
+window.checkAutoSyncParam = checkAutoSyncParam;
 
 // Comprehensive bindings for full cross-module / inline-handler safety
 window.openOrderModalWithDefaults = openOrderModalWithDefaults;
@@ -4628,7 +5050,3 @@ window.filterCatalogCategory = filterCatalogCategory;
 window.renderCatalog = renderCatalog;
 window.shareCalcQuoteWhatsApp = shareCalcQuoteWhatsApp;
 window.exportCatalogPDF = exportCatalogPDF;
-
-
-
-
