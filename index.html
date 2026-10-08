@@ -846,8 +846,11 @@
                     <!-- Feature 11: Descuentos por Volumen / Escala de Precios -->
                     <div class="mt-3 p-3 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08);">
                       <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="text-xs fw-bold text-white"><i class="fa-solid fa-tags text-cyan mr-1"></i> Tarifas Escalonadas por Volumen</span>
-                        <button class="btn-outline btn-xs" onclick="copyVolumeTiersToClipboard()" title="Copiar texto de escala de precios para enviar al cliente"><i class="fa-solid fa-copy"></i> Copiar Oferta</button>
+                        <span class="text-xs fw-bold text-white"><i class="fa-solid fa-boxes-stacked text-cyan mr-1"></i> Tarifas por Volumen & Grandes Tiradas</span>
+                        <div class="d-flex gap-1">
+                          <button type="button" class="btn-outline btn-xs text-cyan" onclick="openBatchQuoteModal()" title="Abrir simulador completo de grandes tiradas"><i class="fa-solid fa-sliders"></i> Simulador Lotes</button>
+                          <button type="button" class="btn-outline btn-xs" onclick="copyVolumeTiersToClipboard()" title="Copiar texto de escala de precios para enviar al cliente"><i class="fa-solid fa-copy"></i> Copiar Oferta</button>
+                        </div>
                       </div>
                       <div class="table-responsive">
                         <table class="w-100 text-xs" style="border-collapse: collapse;">
@@ -857,6 +860,8 @@
                               <th class="py-1 text-center">Descuento</th>
                               <th class="py-1 text-end">PVP / Ud</th>
                               <th class="py-1 text-end">Total</th>
+                              <th class="py-1 text-end text-emerald">Beneficio</th>
+                              <th class="py-1 text-center">Acción</th>
                             </tr>
                           </thead>
                           <tbody id="calc-volume-tiers-body">
@@ -1855,7 +1860,7 @@
             <h2 class="fw-bold text-uppercase m-0" style="color: #2563eb; letter-spacing: 1px;">PRESUPUESTO</h2>
             <p class="m-0 text-sm"><strong>Nº Ref:</strong> <span id="budget-ref-id" class="font-mono">PRE-2026-001</span></p>
             <p class="m-0 text-sm"><strong>Fecha:</strong> <span id="budget-date"></span></p>
-            <p class="m-0 text-xs text-muted"><strong>Validez:</strong> 30 días naturales</p>
+            <p class="m-0 text-xs text-muted"><strong>Validez:</strong> 15 días laborables (hasta <span id="budget-expiry-date" class="text-danger fw-bold"></span>)</p>
           </div>
         </div>
 
@@ -1892,11 +1897,11 @@
         <!-- Summary & Terms -->
         <div class="d-flex justify-content-between align-items-start mt-3 pt-3" style="border-top: 1px solid #e2e8f0;">
           <div style="max-width: 58%; font-size: 11px; color: #64748b; line-height: 1.45;">
-            <strong class="text-dark">Condiciones Comerciales:</strong><br>
+            <strong class="text-dark">Condiciones Comerciales & Validez:</strong><br>
             • Precios en Euros (€). Incluyen preparación de máquina, calibración y control de calidad.<br>
-            • Validez del presupuesto: 30 días desde su emisión.<br>
+            • <strong>Validez comercial: 15 días laborables</strong> (hasta el <span id="budget-terms-expiry" class="fw-bold text-dark"></span>). Pasado este plazo, las tarifas quedan sujetas a revisión.<br>
             • Plazo de fabricación estimado tras confirmación: 24h - 72h laborables.<br>
-            • Aceptación: Confirmar pedido respondiendo a este presupuesto o vía WhatsApp.
+            • Aceptación: Confirmar pedido respondiendo a este documento o vía WhatsApp.
           </div>
           <div style="width: 230px; text-align: right;">
             <div class="d-flex justify-content-between mb-1 text-sm">
@@ -2516,6 +2521,107 @@
       </div>
       <div class="modal-footer">
         <button class="btn-outline" onclick="closeModal('modal-share-catalog')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Simulador de Grandes Tiradas y Lotes Comerciales -->
+  <div id="modal-batch-quote" class="modal-overlay">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-boxes-stacked text-cyan"></i> Cotizador de Grandes Tiradas y Lotes</h4>
+        <button class="modal-close" onclick="closeModal('modal-batch-quote')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs text-muted mb-3">
+          Simula tiradas medianas o masivas (eventos, merchandising, bodas, empresas locales). Calcula el plástico total en kg, el tiempo de máquina y tu beneficio neto exacto garantizado.
+        </p>
+
+        <div class="grid-2 mb-3">
+          <div class="form-group">
+            <label class="form-label text-xs">Pieza a Producir</label>
+            <input type="text" id="batch-item-name" class="form-control text-xs" placeholder="Nombre de la pieza" oninput="calculateBatchQuote()">
+          </div>
+          <div class="form-group">
+            <label class="form-label text-xs">Cantidad de Piezas (Tirada)</label>
+            <div class="d-flex align-items-center gap-2">
+              <input type="number" id="batch-quantity" class="form-control text-xs" value="25" min="2" max="1000" oninput="calculateBatchQuote()">
+              <div class="d-flex gap-1">
+                <button type="button" class="btn-outline btn-xs" onclick="setBatchQty(10)">10</button>
+                <button type="button" class="btn-outline btn-xs" onclick="setBatchQty(25)">25</button>
+                <button type="button" class="btn-outline btn-xs" onclick="setBatchQty(50)">50</button>
+                <button type="button" class="btn-outline btn-xs" onclick="setBatchQty(100)">100</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-3 mb-3">
+          <div class="form-group">
+            <label class="form-label text-xs">Peso unitario (g)</label>
+            <input type="number" id="batch-unit-weight" class="form-control text-xs" value="40" min="1" oninput="calculateBatchQuote()">
+          </div>
+          <div class="form-group">
+            <label class="form-label text-xs">Tiempo unitario (h)</label>
+            <input type="number" id="batch-unit-time" class="form-control text-xs" value="1.5" min="0.1" step="0.1" oninput="calculateBatchQuote()">
+          </div>
+          <div class="form-group">
+            <label class="form-label text-xs">PVP Unitario Base (€)</label>
+            <input type="number" id="batch-unit-base-price" class="form-control text-xs" value="8.00" min="0.5" step="0.5" oninput="calculateBatchQuote()">
+          </div>
+        </div>
+
+        <!-- Métricas del Lote -->
+        <div class="grid-4 mb-3 text-center" style="gap: 8px;">
+          <div class="p-2 rounded bg-dark border border-secondary">
+            <div class="text-xs text-muted">Filamento Total</div>
+            <strong class="text-cyan text-sm" id="batch-total-filament">0.0 kg</strong>
+          </div>
+          <div class="p-2 rounded bg-dark border border-secondary">
+            <div class="text-xs text-muted">Horas Impresión</div>
+            <strong class="text-purple text-sm" id="batch-total-hours">0 h</strong>
+          </div>
+          <div class="p-2 rounded bg-dark border border-secondary">
+            <div class="text-xs text-muted">Coste Fabricación</div>
+            <strong class="text-danger text-sm" id="batch-total-cost">0.00 €</strong>
+          </div>
+          <div class="p-2 rounded bg-dark border border-secondary" style="background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.3);">
+            <div class="text-xs text-emerald fw-bold">Beneficio Limpio</div>
+            <strong class="text-emerald text-sm" id="batch-net-profit">0.00 €</strong>
+          </div>
+        </div>
+
+        <!-- Resumen de Oferta Comercial -->
+        <div class="p-3 rounded mb-3" style="background: rgba(0, 210, 255, 0.05); border: 1px solid rgba(0, 210, 255, 0.25);">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="text-xs text-muted">Precio Unitario con Descuento de Lote:</span>
+            <strong class="text-white font-mono" id="batch-unit-final-price">0.00 €/ud <span class="badge bg-cyan text-xs ml-1" id="batch-discount-badge">-0%</span></strong>
+          </div>
+          <div class="d-flex justify-content-between align-items-center pt-1 border-top border-secondary">
+            <span class="text-sm fw-bold text-white">TOTAL DEL LOTE A COBRAR:</span>
+            <strong class="text-emerald text-xl font-mono" id="batch-total-price">0.00 €</strong>
+          </div>
+        </div>
+
+        <!-- Propuesta para WhatsApp -->
+        <div class="form-group">
+          <label class="form-label text-xs fw-bold text-white"><i class="fa-brands fa-whatsapp text-emerald mr-1"></i> Oferta formal redactada para WhatsApp:</label>
+          <textarea id="batch-whatsapp-msg" class="form-control text-xs font-mono" rows="4" style="background: rgba(0,0,0,0.3); color: #e2e8f0;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer d-flex justify-content-between flex-wrap gap-2">
+        <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-batch-quote')">Cerrar</button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn-outline btn-sm" onclick="copyBatchQuoteWhatsApp()" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">
+            <i class="fa-solid fa-copy"></i> Copiar Oferta
+          </button>
+          <button type="button" class="btn-success btn-sm" onclick="sendBatchQuoteWhatsApp()" style="font-weight: 700;">
+            <i class="fa-brands fa-whatsapp"></i> Enviar por WhatsApp
+          </button>
+          <button type="button" class="btn-primary btn-sm" onclick="convertBatchToOrder()">
+            <i class="fa-solid fa-cart-plus"></i> Crear Encargo de Lote
+          </button>
+        </div>
       </div>
     </div>
   </div>

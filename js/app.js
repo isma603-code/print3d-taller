@@ -731,6 +731,21 @@ function renderOrdersKanban() {
                 </div>
 
                 ${o.isRma ? `<div class="mb-1"><span class="badge bg-danger" style="font-size:10px;"><i class="fa-solid fa-rotate-left mr-1"></i> Garantía / RMA (0 €)</span></div>` : ''}
+                ${(() => {
+                    if (o.status === 'Presupuesto') {
+                        const orderDate = new Date(o.date || Date.now());
+                        const diffDays = Math.floor((Date.now() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
+                        const daysLeft = 15 - diffDays;
+                        if (daysLeft < 0) {
+                            return `<div class="mb-1"><span class="badge bg-danger" style="font-size:9.5px;"><i class="fa-solid fa-hourglass-end mr-1"></i> Presupuesto Caducado (${Math.abs(daysLeft)}d vencido)</span></div>`;
+                        } else if (daysLeft <= 3) {
+                            return `<div class="mb-1"><span class="badge" style="background:#ef4444; color:#fff; font-size:9.5px;"><i class="fa-solid fa-clock mr-1"></i> Caduca en ${daysLeft}d</span></div>`;
+                        } else {
+                            return `<div class="mb-1"><span class="badge" style="background:rgba(245,158,11,0.15); color:#fbbf24; font-size:9.5px;"><i class="fa-solid fa-clock mr-1"></i> Válido ${daysLeft}d restantes</span></div>`;
+                        }
+                    }
+                    return '';
+                })()}
                 <div class="kanban-card-price">${parseFloat(o.price || 0).toFixed(2)} €</div>
 
                 <div class="kanban-card-actions">
@@ -3754,6 +3769,16 @@ function openBudgetModal(orderId) {
     if (subEl) subEl.textContent = `${subtotal.toFixed(2)} €`;
     if (ivaEl) ivaEl.textContent = `${iva.toFixed(2)} €`;
     if (totEl) totEl.textContent = `${priceNum.toFixed(2)} €`;
+
+    // 15-day commercial validity calculation
+    const orderDateObj = o.date ? new Date(o.date) : new Date();
+    const expiryDateObj = new Date(orderDateObj.getTime() + 15 * 24 * 60 * 60 * 1000);
+    const expiryFormatted = expiryDateObj.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const expiryEl = document.getElementById('budget-expiry-date');
+    const termsExpiryEl = document.getElementById('budget-terms-expiry');
+    if (expiryEl) expiryEl.textContent = expiryFormatted;
+    if (termsExpiryEl) termsExpiryEl.textContent = expiryFormatted;
     
     window._activeBudgetData = {
         ref: refId,
@@ -3761,7 +3786,8 @@ function openBudgetModal(orderId) {
         title: o.title,
         price: priceNum.toFixed(2),
         material: filName,
-        phone: client?.phone || ''
+        phone: client?.phone || '',
+        expiry: expiryFormatted
     };
     
     openModal('modal-budget-pdf');
@@ -3815,6 +3841,16 @@ function openCalcBudgetModal() {
     if (subEl) subEl.textContent = `${subtotal.toFixed(2)} €`;
     if (ivaEl) ivaEl.textContent = `${iva.toFixed(2)} €`;
     if (totEl) totEl.textContent = `${priceNum.toFixed(2)} €`;
+
+    // 15-day commercial validity calculation
+    const todayObj = new Date();
+    const expiryDateObj = new Date(todayObj.getTime() + 15 * 24 * 60 * 60 * 1000);
+    const expiryFormatted = expiryDateObj.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const expiryEl = document.getElementById('budget-expiry-date');
+    const termsExpiryEl = document.getElementById('budget-terms-expiry');
+    if (expiryEl) expiryEl.textContent = expiryFormatted;
+    if (termsExpiryEl) termsExpiryEl.textContent = expiryFormatted;
     
     window._activeBudgetData = {
         ref: refId,
@@ -3822,7 +3858,8 @@ function openCalcBudgetModal() {
         title: itemName,
         price: priceNum.toFixed(2),
         material: 'Filamento de Taller',
-        phone: ''
+        phone: '',
+        expiry: expiryFormatted
     };
     
     openModal('modal-budget-pdf');
@@ -3832,10 +3869,10 @@ function sendActiveBudgetWhatsApp() {
     if (!window._activeBudgetData) return;
     const d = window._activeBudgetData;
     const msg = `¡Hola! Le enviamos el presupuesto formal de impresión 3D para "${d.title}":\n\n` +
-                `📋 Ref: ${d.ref}\n` +
-                `📦 Pieza: ${d.title} (${d.material})\n` +
-                `💰 Precio Total: ${d.price} € (IVA incl.)\n` +
-                `⏳ Validez: 30 días naturales\n\n` +
+                `📋 *Ref:* ${d.ref}\n` +
+                `📦 *Pieza:* ${d.title} (${d.material})\n` +
+                `💰 *Precio Total:* ${d.price} € (IVA incl.)\n` +
+                `📅 *Validez comercial:* 15 días laborables (hasta el ${d.expiry || '15 días'}) sujeto a disponibilidad de cola del taller.\n\n` +
                 `¿Desea confirmarlo para que lo pongamos en cola de impresión en el taller? ¡Muchas gracias!`;
     const phoneClean = (d.phone || '').replace(/[^0-9]/g, '');
     const url = phoneClean ? `https://wa.me/${phoneClean}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
@@ -4082,35 +4119,79 @@ function applyFixedHourlyCostToCalculator() {
     showToast(`Coste de estructura (+${hourlyRate.toFixed(2)} €/h) vinculado a la calculadora`, 'success');
 }
 
-// FEATURE 11: Descuentos por Volumen / Escala de Precios
+// FEATURE 11 & MEJORA 3: Descuentos por Volumen / Escala de Precios & Cotizador de Lotes
 function renderVolumeTiers() {
     const tbody = document.getElementById('calc-volume-tiers-body');
     if (!tbody) return;
     
     const suggestedPriceEl = document.getElementById('calc-suggested-price');
     const basePrice = parseFloat(suggestedPriceEl ? suggestedPriceEl.textContent.replace('€', '').trim() : 0) || 15.00;
+    const unitWeight = parseFloat(document.getElementById('calc-weight')?.value) || 50;
+    const unitTime = parseFloat(document.getElementById('calc-time')?.value) || 2.0;
+
+    const kwhCost = parseFloat(state.electricityTariff) || 0.18;
+    const machineWear = 0.20;
+    const costPerKg = 20.0;
+    const unitCost = (unitWeight / 1000) * costPerKg + unitTime * (0.25 * kwhCost + machineWear);
     
     const tiers = [
-        { qty: '1 ud (Muestra)', disc: 0, factor: 1.0 },
-        { qty: '5 uds', disc: 10, factor: 0.90 },
-        { qty: '10 uds', disc: 15, factor: 0.85 },
-        { qty: '25 uds', disc: 25, factor: 0.75 },
-        { qty: '50 uds (Tirada)', disc: 35, factor: 0.65 }
+        { qty: '1 ud (Muestra)', count: 1, disc: 0, factor: 1.0 },
+        { qty: '5 uds', count: 5, disc: 10, factor: 0.90 },
+        { qty: '10 uds', count: 10, disc: 15, factor: 0.85 },
+        { qty: '25 uds', count: 25, disc: 22, factor: 0.78 },
+        { qty: '50 uds (Tirada)', count: 50, disc: 32, factor: 0.68 },
+        { qty: '100 uds (Lote)', count: 100, disc: 40, factor: 0.60 }
     ];
     
     tbody.innerHTML = tiers.map(t => {
         const unitPvp = basePrice * t.factor;
-        const count = parseInt(t.qty) || 1;
-        const totalPvp = unitPvp * count;
+        const totalPvp = unitPvp * t.count;
+        const totalBatchCost = unitCost * t.count;
+        const netProfit = Math.max(0, totalPvp - totalBatchCost);
+
         return `
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
                 <td class="py-1"><strong>${t.qty}</strong></td>
                 <td class="py-1 text-center"><span class="badge ${t.disc > 0 ? 'bg-cyan' : 'bg-secondary'}" style="font-size:10px;">${t.disc > 0 ? `-${t.disc}%` : 'Base'}</span></td>
                 <td class="py-1 text-end font-mono text-emerald fw-bold">${unitPvp.toFixed(2)} €</td>
                 <td class="py-1 text-end font-mono text-white">${totalPvp.toFixed(2)} €</td>
+                <td class="py-1 text-end font-mono text-emerald fw-bold">+${netProfit.toFixed(1)} €</td>
+                <td class="py-1 text-center">
+                    <button type="button" class="btn btn-outline btn-xs text-cyan" onclick="convertTierToOrder(${t.count}, ${unitPvp.toFixed(2)})" title="Crear encargo para este lote (${t.count} uds)" style="padding: 1px 6px;">
+                        <i class="fa-solid fa-cart-plus"></i>
+                    </button>
+                </td>
             </tr>
         `;
     }).join('');
+}
+
+function convertTierToOrder(qty, unitPrice) {
+    const itemName = document.getElementById('calc-item-name')?.value?.trim() || 'Pieza en Lote';
+    const unitWeight = parseFloat(document.getElementById('calc-weight')?.value) || 50;
+    const unitTime = parseFloat(document.getElementById('calc-time')?.value) || 2.0;
+
+    const totalWeight = Math.round(unitWeight * qty);
+    const totalTime = parseFloat((unitTime * qty).toFixed(1));
+    const totalPrice = parseFloat((unitPrice * qty).toFixed(2));
+
+    switchTab('tab-orders');
+    openOrderModalWithDefaults();
+
+    setTimeout(() => {
+        const itemInput = document.getElementById('order-item');
+        const weightInput = document.getElementById('order-weight');
+        const timeInput = document.getElementById('order-time');
+        const priceInput = document.getElementById('order-price');
+
+        if (itemInput) itemInput.value = `Tirada de ${qty} uds: ${itemName}`;
+        if (weightInput) weightInput.value = totalWeight;
+        if (timeInput) timeInput.value = totalTime;
+        if (priceInput) priceInput.value = totalPrice;
+
+        showToast(`Lote de ${qty} unidades volcado en el nuevo encargo`, 'success');
+        playChime('success');
+    }, 60);
 }
 
 function copyVolumeTiersToClipboard() {
@@ -4118,19 +4199,178 @@ function copyVolumeTiersToClipboard() {
     const suggestedPriceEl = document.getElementById('calc-suggested-price');
     const basePrice = parseFloat(suggestedPriceEl ? suggestedPriceEl.textContent.replace('€', '').trim() : 0) || 15.00;
     
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + 15);
+    const expiryFormatted = expiry.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
     const text = `📋 *Escala de Precios por Volumen — ${itemName}*\n` +
-                 `• 1 unidad: ${basePrice.toFixed(2)} €/ud\n` +
+                 `• 1 unidad (Muestra): ${basePrice.toFixed(2)} €/ud\n` +
                  `• 5 unidades: ${(basePrice * 0.90).toFixed(2)} €/ud (Total: ${(basePrice * 0.90 * 5).toFixed(2)} €)\n` +
                  `• 10 unidades: ${(basePrice * 0.85).toFixed(2)} €/ud (Total: ${(basePrice * 0.85 * 10).toFixed(2)} €)\n` +
-                 `• 25 unidades: ${(basePrice * 0.75).toFixed(2)} €/ud (Total: ${(basePrice * 0.75 * 25).toFixed(2)} €)\n` +
-                 `• 50 unidades: ${(basePrice * 0.65).toFixed(2)} €/ud (Total: ${(basePrice * 0.65 * 50).toFixed(2)} €)\n\n` +
-                 `_Precios con IVA incluido. Válido durante 30 días en Print3D Studio._`;
+                 `• 25 unidades: ${(basePrice * 0.78).toFixed(2)} €/ud (Total: ${(basePrice * 0.78 * 25).toFixed(2)} €)\n` +
+                 `• 50 unidades: ${(basePrice * 0.68).toFixed(2)} €/ud (Total: ${(basePrice * 0.68 * 50).toFixed(2)} €)\n` +
+                 `• 100 unidades: ${(basePrice * 0.60).toFixed(2)} €/ud (Total: ${(basePrice * 0.60 * 100).toFixed(2)} €)\n\n` +
+                 `_Precios con IVA incluido. Validez comercial: 15 días laborables (hasta el ${expiryFormatted}) en Print3D Studio._`;
                  
     navigator.clipboard.writeText(text).then(() => {
         showToast('Oferta por volumen copiada para enviar por WhatsApp', 'success');
     }).catch(() => {
         showToast('Texto de oferta preparado', 'info');
     });
+}
+
+// SIMULADOR DE GRANDES TIRADAS Y LOTES COMERCIALES
+let currentBatchQuoteData = null;
+
+function openBatchQuoteModal() {
+    const itemName = document.getElementById('calc-item-name')?.value?.trim() || 'Lote de Piezas 3D';
+    const weight = parseFloat(document.getElementById('calc-weight')?.value) || 40;
+    const time = parseFloat(document.getElementById('calc-time')?.value) || 1.5;
+    const suggestedPriceEl = document.getElementById('calc-suggested-price');
+    const basePrice = parseFloat(suggestedPriceEl ? suggestedPriceEl.textContent.replace('€', '').trim() : 0) || 8.00;
+
+    const nameInp = document.getElementById('batch-item-name');
+    const wInp = document.getElementById('batch-unit-weight');
+    const tInp = document.getElementById('batch-unit-time');
+    const pInp = document.getElementById('batch-unit-base-price');
+
+    if (nameInp) nameInp.value = itemName;
+    if (wInp) wInp.value = weight;
+    if (tInp) tInp.value = time;
+    if (pInp) pInp.value = basePrice;
+
+    calculateBatchQuote();
+    openModal('modal-batch-quote');
+}
+
+function setBatchQty(qty) {
+    const qInp = document.getElementById('batch-quantity');
+    if (qInp) qInp.value = qty;
+    calculateBatchQuote();
+}
+
+function calculateBatchQuote() {
+    const itemName = document.getElementById('batch-item-name')?.value?.trim() || 'Pieza en Lote';
+    const qty = parseInt(document.getElementById('batch-quantity')?.value, 10) || 25;
+    const unitWeight = parseFloat(document.getElementById('batch-unit-weight')?.value) || 40;
+    const unitTime = parseFloat(document.getElementById('batch-unit-time')?.value) || 1.5;
+    const unitBasePrice = parseFloat(document.getElementById('batch-unit-base-price')?.value) || 8.00;
+
+    // Progressive discounts by volume
+    let discountPct = 0;
+    if (qty >= 100) discountPct = 38;
+    else if (qty >= 50) discountPct = 30;
+    else if (qty >= 25) discountPct = 22;
+    else if (qty >= 10) discountPct = 15;
+    else if (qty >= 5) discountPct = 8;
+
+    const unitFinalPrice = Math.max(1.5, parseFloat((unitBasePrice * (1 - discountPct / 100)).toFixed(2)));
+    const totalPrice = parseFloat((unitFinalPrice * qty).toFixed(2));
+
+    const totalWeightKg = parseFloat(((unitWeight * qty) / 1000).toFixed(2));
+    const totalHours = parseFloat((unitTime * qty).toFixed(1));
+
+    const kwhCost = parseFloat(state.electricityTariff) || 0.18;
+    const machineWear = 0.20;
+    const costPerKg = 20.0;
+    const totalProductionCost = parseFloat((totalWeightKg * costPerKg + totalHours * (0.25 * kwhCost + machineWear)).toFixed(2));
+    const netProfit = Math.max(0, parseFloat((totalPrice - totalProductionCost).toFixed(2)));
+
+    // Days needed with workshop fleet (approx 10h/day per printer)
+    const printersCount = Math.max(1, state.printers.length);
+    const daysNeeded = Math.max(1, Math.ceil(totalHours / (printersCount * 10)));
+
+    currentBatchQuoteData = {
+        name: itemName,
+        qty,
+        unitBasePrice,
+        unitFinalPrice,
+        discountPct,
+        totalPrice,
+        totalWeightKg,
+        totalHours,
+        totalProductionCost,
+        netProfit,
+        daysNeeded
+    };
+
+    const filEl = document.getElementById('batch-total-filament');
+    const hoursEl = document.getElementById('batch-total-hours');
+    const costEl = document.getElementById('batch-total-cost');
+    const profitEl = document.getElementById('batch-net-profit');
+    const unitFinalEl = document.getElementById('batch-unit-final-price');
+    const totalPricEl = document.getElementById('batch-total-price');
+
+    if (filEl) filEl.textContent = `${totalWeightKg} kg`;
+    if (hoursEl) hoursEl.textContent = `${totalHours} h`;
+    if (costEl) costEl.textContent = `${totalProductionCost.toFixed(2)} €`;
+    if (profitEl) profitEl.textContent = `+${netProfit.toFixed(2)} €`;
+    if (unitFinalEl) unitFinalEl.innerHTML = `${unitFinalPrice.toFixed(2)} €/ud <span class="badge bg-cyan text-xs ml-1" id="batch-discount-badge">-${discountPct}%</span>`;
+    if (totalPricEl) totalPricEl.textContent = `${totalPrice.toFixed(2)} €`;
+
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + 15);
+    const expiryFormatted = expiry.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const msg = `¡Hola! 👋 Propuesta formal por volumen para la producción de *${qty} unidades* de *"${itemName}"*:\n\n` +
+                `📦 *Cantidad:* ${qty} unidades\n` +
+                `🏷️ *Precio unitario:* ${unitFinalPrice.toFixed(2)} €/ud (Descuento de lote aplicado: -${discountPct}%)\n` +
+                `💰 *TOTAL DEL LOTE:* ${totalPrice.toFixed(2)} € (IVA incl.)\n` +
+                `⏱️ *Plazo de fabricación estimado:* ~${daysNeeded} días laborables\n\n` +
+                `📅 *Validez del presupuesto:* 15 días laborables (hasta el ${expiryFormatted}) sujeto a cola de taller.\n\n` +
+                `¿Deseas confirmarlo para reservar bobinas y programar las impresoras? 🚀`;
+
+    const msgEl = document.getElementById('batch-whatsapp-msg');
+    if (msgEl) msgEl.value = msg;
+}
+
+function copyBatchQuoteWhatsApp() {
+    const msgEl = document.getElementById('batch-whatsapp-msg');
+    if (!msgEl || !msgEl.value) return;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(msgEl.value).then(() => {
+            showToast('📋 ¡Oferta de tirada copiada para WhatsApp!', 'success');
+        }).catch(() => {
+            msgEl.select();
+            document.execCommand('copy');
+            showToast('📋 Oferta copiada', 'success');
+        });
+    } else {
+        msgEl.select();
+        document.execCommand('copy');
+        showToast('📋 Oferta copiada', 'success');
+    }
+    playChime('success');
+}
+
+function sendBatchQuoteWhatsApp() {
+    const msgEl = document.getElementById('batch-whatsapp-msg');
+    if (!msgEl || !msgEl.value) return;
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(msgEl.value)}`;
+    window.open(waUrl, '_blank');
+}
+
+function convertBatchToOrder() {
+    if (!currentBatchQuoteData) return;
+    const d = currentBatchQuoteData;
+    closeModal('modal-batch-quote');
+    switchTab('tab-orders');
+    openOrderModalWithDefaults();
+
+    setTimeout(() => {
+        const itemInput = document.getElementById('order-item');
+        const weightInput = document.getElementById('order-weight');
+        const timeInput = document.getElementById('order-time');
+        const priceInput = document.getElementById('order-price');
+
+        if (itemInput) itemInput.value = `Tirada de ${d.qty} uds: ${d.name}`;
+        if (weightInput) weightInput.value = Math.round(d.totalWeightKg * 1000);
+        if (timeInput) timeInput.value = d.totalHours;
+        if (priceInput) priceInput.value = d.totalPrice;
+
+        showToast(`Tirada de ${d.qty} unidades volcada al formulario de encargo`, 'success');
+        playChime('success');
+    }, 60);
 }
 
 // FEATURE 15: Estimador de Fecha de Entrega Realista según Cola del Taller
@@ -5447,4 +5687,14 @@ window.shareClientCatalog = shareClientCatalog;
 window.copyCatalogLink = copyCatalogLink;
 window.shareCatalogByWhatsApp = shareCatalogByWhatsApp;
 window.previewCatalogPage = previewCatalogPage;
+
+// Window bindings for features 3 and 5 (Batch Quotes & Tier Orders)
+window.openBatchQuoteModal = openBatchQuoteModal;
+window.setBatchQty = setBatchQty;
+window.calculateBatchQuote = calculateBatchQuote;
+window.copyBatchQuoteWhatsApp = copyBatchQuoteWhatsApp;
+window.sendBatchQuoteWhatsApp = sendBatchQuoteWhatsApp;
+window.convertBatchToOrder = convertBatchToOrder;
+window.convertTierToOrder = convertTierToOrder;
+
 
