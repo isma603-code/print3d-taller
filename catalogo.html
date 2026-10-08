@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Catálogo 3D & Trabajos por Encargo | Print3D Studio</title>
+  <link rel="icon" type="image/svg+xml" href="img/icon.svg">
+  
+  <!-- Google Fonts & Font Awesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --bg-primary: #0a0e17;
+      --bg-secondary: #0f172a;
+      --bg-card: rgba(15, 23, 42, 0.75);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --primary: #00d2ff;
+      --primary-hover: #00b4db;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Ambient background glow */
+    .bg-glow {
+      position: fixed;
+      top: -10%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(0, 210, 255, 0.12) 0%, rgba(16, 185, 129, 0.05) 50%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px 16px 60px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Top Banner / Store Header */
+    .catalog-header {
+      text-align: center;
+      padding: 30px 15px 25px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .shop-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 50px;
+      background: rgba(0, 210, 255, 0.1);
+      border: 1px solid rgba(0, 210, 255, 0.3);
+      color: var(--primary);
+      font-size: 0.8rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .shop-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.2rem;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #ffffff 40%, #00d2ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .shop-desc {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      max-width: 650px;
+      margin: 0 auto 18px;
+      line-height: 1.5;
+    }
+
+    .shop-features {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+    }
+
+    .shop-feature-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* Search & Filter Toolbar */
+    .catalog-toolbar {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .search-box {
+      position: relative;
+      width: 100%;
+    }
+
+    .search-box i {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 14px 16px 14px 44px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      color: var(--text-main);
+      font-size: 0.95rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .search-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(0, 210, 255, 0.2);
+    }
+
+    .pills-container {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      scrollbar-width: none;
+    }
+
+    .pills-container::-webkit-scrollbar {
+      display: none;
+    }
+
+    .pill-btn {
+      white-space: nowrap;
+      padding: 8px 16px;
+      border-radius: 30px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .pill-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+    }
+
+    .pill-btn.active {
+      background: var(--primary);
+      color: #000;
+      border-color: var(--primary);
+      font-weight: 700;
+    }
+
+    /* Product Grid */
+    .products-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    /* Product Card */
+    .product-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 18px;
+      overflow: hidden;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+
+    .product-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+      border-color: rgba(0, 210, 255, 0.3);
+    }
+
+    .product-image-wrap {
+      width: 100%;
+      height: 200px;
+      position: relative;
+      background: #070b12;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .product-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s ease;
+    }
+
+    .product-card:hover .product-img {
+      transform: scale(1.04);
+    }
+
+    .product-placeholder-icon {
+      font-size: 4rem;
+      color: rgba(255, 255, 255, 0.15);
+      background: linear-gradient(135deg, rgba(0, 210, 255, 0.2), rgba(16, 185, 129, 0.1));
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .product-category-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #e2e8f0;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .product-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+    }
+
+    .product-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      line-height: 1.3;
+      color: #ffffff;
+    }
+
+    .product-notes {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      line-height: 1.4;
+      flex-grow: 1;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .product-specs {
+      display: flex;
+      gap: 10px;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-bottom: 14px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .product-spec-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .product-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .product-price {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: var(--emerald);
+      letter-spacing: -0.5px;
+    }
+
+    .btn-order-wa {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border-radius: 12px;
+      background: #10b981;
+      color: #ffffff;
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.15s ease;
+    }
+
+    .btn-order-wa:hover {
+      background: #059669;
+      transform: scale(1.02);
+    }
+
+    /* Custom Order CTA Card */
+    .custom-order-card {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, rgba(0, 210, 255, 0.1), rgba(16, 185, 129, 0.08));
+      border: 1px dashed rgba(0, 210, 255, 0.4);
+      border-radius: 20px;
+      padding: 24px;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    .custom-order-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+
+    .custom-order-desc {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      max-width: 600px;
+      margin: 0 auto 16px;
+    }
+
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 12px;
+      color: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Toast */
+    #toast-msg {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 12px 20px;
+      background: #1e293b;
+      color: #fff;
+      border-radius: 10px;
+      border: 1px solid var(--primary);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: none;
+      z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+
+  <div class="container">
+    <!-- Header -->
+    <header class="catalog-header">
+      <div class="shop-badge">
+        <i class="fa-solid fa-cube"></i> Taller de Impresión 3D Profesional
+      </div>
+      <h1 class="shop-title" id="shop-name">Catálogo de Modelos & Encargos</h1>
+      <p class="shop-desc">
+        Fabricación aditiva de alta precisión con materiales prémium (PLA+, PETG, TPU flexible y Resina SLA). 
+        Elige un modelo o pídenos un diseño 100% a medida.
+      </p>
+      <div class="shop-features">
+        <span class="shop-feature-item"><i class="fa-solid fa-check text-cyan"></i> Materiales Resistentes</span>
+        <span class="shop-feature-item"><i class="fa-solid fa-check text-cyan"></i> Envíos y Entrega Rápida</span>
+        <span class="shop-feature-item"><i class="fa-solid fa-check text-cyan"></i> Acabados Artesanales</span>
+      </div>
+    </header>
+
+    <!-- Toolbar -->
+    <div class="catalog-toolbar">
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" id="catalog-search" class="search-input" placeholder="Buscar figuras, cosplay, llaveros, piezas técnicas..." oninput="filterProducts()">
+      </div>
+
+      <div class="pills-container" id="category-pills">
+        <button class="pill-btn active" onclick="selectCategory('ALL', this)">Todos</button>
+        <button class="pill-btn" onclick="selectCategory('Figuras & Miniaturas', this)">Figuras & Miniaturas</button>
+        <button class="pill-btn" onclick="selectCategory('Cosplay & Props', this)">Cosplay & Props</button>
+        <button class="pill-btn" onclick="selectCategory('Mecánica & Utilidad', this)">Mecánica & Utilidad</button>
+        <button class="pill-btn" onclick="selectCategory('Decoración & Hogar', this)">Decoración & Hogar</button>
+        <button class="pill-btn" onclick="selectCategory('Litofanías & Regalos', this)">Litofanías</button>
+      </div>
+    </div>
+
+    <!-- Products Grid -->
+    <div class="products-grid" id="products-grid">
+      <!-- Injected by JavaScript -->
+    </div>
+
+    <!-- Custom Piece Banner -->
+    <div class="custom-order-card">
+      <div class="custom-order-title">¿No encuentras lo que buscas o tienes tu propio archivo 3D?</div>
+      <p class="custom-order-desc">
+        Imprimimos cualquier pieza personalizada desde archivos .STL, .OBJ o ideas desde cero. Envíame una foto o el enlace por WhatsApp y te doy presupuesto al instante.
+      </p>
+      <a href="https://wa.me/?text=Hola!%20Tengo%20una%20idea%20o%20archivo%20para%20imprimir%20en%203D%2C%20me%20gustar%C3%ADa%20pedir%20presupuesto" target="_blank" class="btn-order-wa" style="padding: 12px 24px; font-size: 0.95rem;">
+        <i class="fa-brands fa-whatsapp"></i> Pedir Presupuesto a Medida por WhatsApp
+      </a>
+    </div>
+  </div>
+
+  <div id="toast-msg"></div>
+
+  <script>
+    let catalogItems = [];
+    let currentCategory = 'ALL';
+
+    function initCatalog() {
+      // 1. Try to load from URL parameter (?data=base64)
+      const urlParams = new URLSearchParams(window.location.search);
+      const dataParam = urlParams.get('data');
+
+      if (dataParam) {
+        try {
+          const jsonStr = decodeURIComponent(escape(atob(dataParam)));
+          const parsed = JSON.parse(jsonStr);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            catalogItems = parsed;
+          }
+        } catch (e) {
+          console.warn('Could not parse catalog data from URL:', e);
+        }
+      }
+
+      // 2. Fallback to localStorage if on same device or domain
+      if (!catalogItems || catalogItems.length === 0) {
+        try {
+          const savedState = localStorage.getItem('PRINT3D_ERP_STATE_V7');
+          if (savedState) {
+            const state = JSON.parse(savedState);
+            if (state && Array.isArray(state.catalog) && state.catalog.length > 0) {
+              catalogItems = state.catalog;
+            }
+          }
+        } catch (e) {
+          console.warn('Could not read state from localStorage:', e);
+        }
+      }
+
+      // 3. Ultimate fallback sample models if completely empty
+      if (!catalogItems || catalogItems.length === 0) {
+        catalogItems = [
+          { id: '1', name: 'Casco Iron Man Mark 85', category: 'Cosplay & Props', material: 'PLA+', price: 175.00, weight: 850, time: 42.0, icon: 'fa-solid fa-mask', notes: 'Escala 1:1, gran nivel de detalle y acabado pulido.' },
+          { id: '2', name: 'Dragón Articulado Cristal', category: 'Figuras & Miniaturas', material: 'PETG', price: 24.50, weight: 160, time: 7.5, icon: 'fa-solid fa-dragon', notes: 'Print-in-place articulado sin montaje ni pegamento.' },
+          { id: '3', name: 'Soporte Auriculares Hexagonal', category: 'Decoración & Hogar', material: 'PLA+', price: 19.90, weight: 120, time: 4.0, icon: 'fa-solid fa-headphones', notes: 'Diseño geométrico moderno para escritorio o setup gamer.' },
+          { id: '4', name: 'Engranaje Reductor Helicoidal', category: 'Mecánica & Utilidad', material: 'PETG', price: 16.00, weight: 85, time: 3.5, icon: 'fa-solid fa-gear', notes: 'Alta resistencia mecánica y precisión dimensional.' },
+          { id: '5', name: 'Busto Batman Dark Knight', category: 'Figuras & Miniaturas', material: 'Resina SLA', price: 45.00, weight: 280, time: 14.0, icon: 'fa-solid fa-chess-knight', notes: 'Definición extrema en resina fotopolímera de 8K.' },
+          { id: '6', name: 'Litofanía Curva Personalizada', category: 'Litofanías & Regalos', material: 'PLA+', price: 22.00, weight: 95, time: 6.0, icon: 'fa-solid fa-lightbulb', notes: 'Convierte tu foto favorita en una lámpara 3D translúcida.' }
+        ];
+      }
+
+      renderProducts(catalogItems);
+    }
+
+    function renderProducts(items) {
+      const grid = document.getElementById('products-grid');
+      if (!grid) return;
+
+      if (!items || items.length === 0) {
+        grid.innerHTML = `
+          <div class="empty-state">
+            <i class="fa-solid fa-box-open"></i>
+            <h3>No se encontraron modelos</h3>
+            <p>Prueba con otra palabra clave o selecciona otra categoría.</p>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = items.map(item => {
+        const photoHtml = item.photo 
+          ? `<img src="${item.photo}" alt="${escapeHtml(item.name)}" class="product-img">`
+          : `<div class="product-placeholder-icon"><i class="${item.icon || 'fa-solid fa-cube'}"></i></div>`;
+
+        const waText = `¡Hola! 👋 He visto tu catálogo 3D y me gustaría encargar el modelo "*${item.name}*" (${parseFloat(item.price || 0).toFixed(2)} €). ¿Podrías darme más detalles o plazo de entrega?`;
+        const waUrl = `https://wa.me/?text=${encodeURIComponent(waText)}`;
+
+        return `
+          <div class="product-card">
+            <div class="product-image-wrap">
+              ${photoHtml}
+              <div class="product-category-badge">${escapeHtml(item.category || 'Varios')}</div>
+            </div>
+            <div class="product-body">
+              <h3 class="product-title">${escapeHtml(item.name)}</h3>
+              <p class="product-notes">${escapeHtml(item.notes || 'Pieza impresa en 3D con materiales de alta calidad y resistencia.')}</p>
+              
+              <div class="product-specs">
+                <span class="product-spec-item"><i class="fa-solid fa-spool text-cyan"></i> ${escapeHtml(item.material || 'PLA+')}</span>
+                ${item.weight ? `<span class="product-spec-item"><i class="fa-solid fa-weight-hanging text-muted"></i> ~${item.weight}g</span>` : ''}
+              </div>
+
+              <div class="product-footer">
+                <div class="product-price">${parseFloat(item.price || 0).toFixed(2)} €</div>
+                <a href="${waUrl}" target="_blank" class="btn-order-wa" title="Encargar por WhatsApp">
+                  <i class="fa-brands fa-whatsapp"></i> Pedir
+                </a>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selectCategory(cat, btn) {
+      currentCategory = cat;
+      document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      filterProducts();
+    }
+
+    function filterProducts() {
+      const query = (document.getElementById('catalog-search')?.value || '').toLowerCase().trim();
+      const filtered = catalogItems.filter(item => {
+        const matchesCategory = (currentCategory === 'ALL' || item.category === currentCategory);
+        const matchesQuery = !query || 
+          (item.name && item.name.toLowerCase().includes(query)) ||
+          (item.notes && item.notes.toLowerCase().includes(query)) ||
+          (item.material && item.material.toLowerCase().includes(query));
+        return matchesCategory && matchesQuery;
+      });
+      renderProducts(filtered);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    document.addEventListener('DOMContentLoaded', initCatalog);
+  </script>
+</body>
+</html>

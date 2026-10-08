@@ -214,6 +214,12 @@
               <button class="btn-outline btn-md" onclick="openCloudSyncModal()" style="border-color: rgba(16, 185, 129, 0.4); color: #34d399;">
                 <i class="fa-solid fa-cloud-arrow-up"></i> ☁️ Nube PC ⟷ Móvil
               </button>
+              <button class="btn-outline btn-md" onclick="openExpressQuoteModal()" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">
+                <i class="fa-solid fa-bolt"></i> ⚡ Cotizador Express WhatsApp
+              </button>
+              <button class="btn-outline btn-md" onclick="shareClientCatalog()" style="border-color: rgba(0, 210, 255, 0.4); color: var(--primary);">
+                <i class="fa-solid fa-shop"></i> 🛍️ Catálogo Web Clientes
+              </button>
             </div>
           </div>
 
@@ -468,6 +474,8 @@
                   <div class="text-sm text-gray mt-1">Biblioteca de piezas frecuentes con cálculo de costes, márgenes y lanzamiento de pedidos en 1 clic.</div>
                 </div>
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                  <button class="btn btn-success btn-sm" onclick="shareClientCatalog()" style="font-weight: 700;"><i class="fa-solid fa-share-nodes"></i> Compartir Catálogo Web</button>
+                  <button class="btn btn-outline btn-sm text-amber" onclick="openPrintTipsModal()"><i class="fa-solid fa-lightbulb"></i> Bitácora de Trucos</button>
                   <button class="btn btn-outline btn-sm" onclick="exportCatalogPDF()"><i class="fa-solid fa-file-pdf text-danger"></i> Catálogo PDF</button>
                   <button class="btn btn-primary btn-sm" onclick="openCatalogModal()"><i class="fa-solid fa-circle-plus"></i> Añadir Modelo</button>
                 </div>
@@ -806,6 +814,9 @@
                     <button class="btn-outline w-100 btn-md mt-2" onclick="openCalcBudgetModal()" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">
                       <i class="fa-solid fa-file-pdf"></i> Generar Presupuesto Formal (PDF)
                     </button>
+                    <button class="btn-outline w-100 btn-md mt-2" onclick="openExpressQuoteModal()" style="border-color: rgba(16, 185, 129, 0.4); color: #34d399; font-weight: 700;">
+                      <i class="fa-solid fa-bolt"></i> Cotizador Rápido Express WhatsApp (Sin archivo)
+                    </button>
 
                     <!-- Proyecto Multi-Pieza (Ensamblajes) -->
                     <div class="mt-3 p-3 rounded" style="background: rgba(0, 210, 255, 0.05); border: 1px solid rgba(0, 210, 255, 0.25);">
@@ -1123,9 +1134,10 @@
               </div>
               <div class="form-group">
                 <label class="form-label">Pieza o Modelo</label>
-                <input type="text" id="order-item" class="form-control" required placeholder="Ej. Soporte móvil, Busto dragón...">
+                <input type="text" id="order-item" class="form-control" required placeholder="Ej. Soporte móvil, Busto dragón..." oninput="lookupModelPrintNotes(this.value)">
               </div>
             </div>
+            <div id="order-tips-banner" class="mt-2 p-2 rounded" style="display:none; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.35); font-size:12px; color:#fbbf24;"></div>
           </div>
 
           <!-- Paso 2: Material, Peso y Precio -->
@@ -1199,6 +1211,10 @@
                 <label class="form-label text-xs">Foto del modelo (opcional)</label>
                 <input type="file" id="order-photo" accept="image/*" class="form-control" onchange="previewOrderPhoto(this)">
                 <img id="order-photo-preview" src="" style="display:none; max-width:100%; border-radius:8px; margin-top:8px;">
+              </div>
+              <div class="form-group mt-2">
+                <label class="form-label text-xs"><i class="fa-solid fa-lightbulb text-amber mr-1"></i> Trucos de Fabricación / Parámetros del Modelo (opcional)</label>
+                <input type="text" id="order-print-notes" class="form-control text-xs" placeholder="Ej. Brim 5mm obligatorio, cama 65ºC, soportes árbol 55º...">
               </div>
               <!-- Feature 13: Garantía y Registro de Repetición (RMA) -->
               <div class="p-2 mt-2 rounded" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25);">
@@ -2354,6 +2370,152 @@
       </div>
       <div class="modal-footer">
         <button class="btn-outline" onclick="closeModal('modal-cloud-sync')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Cotizador Rápido Express WhatsApp -->
+  <div id="modal-express-quote" class="modal-overlay">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-bolt text-amber"></i> Cotizador Rápido Express (WhatsApp)</h4>
+        <button class="modal-close" onclick="closeModal('modal-express-quote')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs text-muted mb-3">
+          Calcula un presupuesto rápido y redacta una respuesta para WhatsApp en 5 segundos cuando un cliente te pregunte sin mandarte el archivo 3D todavía.
+        </p>
+
+        <div class="grid-2 mb-2">
+          <div class="form-group">
+            <label class="form-label text-xs">Tipo de Pieza</label>
+            <select id="eq-type" class="form-select" onchange="calculateExpressQuote()">
+              <option value="figura">🎎 Figura / Miniatura (Detalle)</option>
+              <option value="llavero">🔑 Llavero / Accesorio pequeño</option>
+              <option value="tecnica">⚙️ Pieza Técnica / Soporte</option>
+              <option value="cosplay">🎭 Cosplay / Casco / Prop</option>
+              <option value="caja">📦 Caja / Carcasa / Tapa</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label text-xs">Tamaño Aproximado</label>
+            <select id="eq-size" class="form-select" onchange="calculateExpressQuote()">
+              <option value="mini">🔹 Pequeño (&lt; 8 cm)</option>
+              <option value="mediano" selected>🔸 Mediano (8 - 15 cm)</option>
+              <option value="grande">🔷 Grande (15 - 25 cm)</option>
+              <option value="gigante">👑 Muy Grande (&gt; 25 cm)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2 mb-3">
+          <div class="form-group">
+            <label class="form-label text-xs">Resistencia / Relleno</label>
+            <select id="eq-density" class="form-select" onchange="calculateExpressQuote()">
+              <option value="decorativo" selected>🟢 Normal / Decorativo (15% relleno)</option>
+              <option value="reforzado">🟡 Fuerte / Mecánico (35% relleno, 4 paredes)</option>
+              <option value="solido">🔴 Máxima Solidez (70%+ relleno)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label text-xs">Material Sugerido</label>
+            <select id="eq-material" class="form-select" onchange="calculateExpressQuote()">
+              <option value="PLA+" selected>PLA+ (Estándar alta calidad)</option>
+              <option value="PETG">PETG (Exterior / Calor)</option>
+              <option value="TPU">TPU (Goma flexible)</option>
+              <option value="Resina SLA">Resina SLA (Ultra definición)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Resultados Estimados -->
+        <div class="p-3 rounded mb-3" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3);">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="text-xs text-muted">Presupuesto Estimado a Cliente:</span>
+            <strong class="text-emerald text-lg" id="eq-price-range">14.00 € - 18.00 €</strong>
+          </div>
+          <div class="d-flex justify-content-between align-items-center text-xs text-muted">
+            <span>Estimación interna: <strong id="eq-stats" class="text-white">~110g • ~5.5h</strong></span>
+            <span>Plazo recomendado: <strong id="eq-delay" class="text-cyan">24 - 48 horas</strong></span>
+          </div>
+        </div>
+
+        <!-- Mensaje redactado para WhatsApp -->
+        <div class="form-group">
+          <label class="form-label text-xs fw-bold text-white"><i class="fa-brands fa-whatsapp text-emerald mr-1"></i> Mensaje listo para WhatsApp:</label>
+          <textarea id="eq-whatsapp-msg" class="form-control text-xs font-mono" rows="4" style="background: rgba(0,0,0,0.3); color: #e2e8f0;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer d-flex justify-content-between flex-wrap gap-2">
+        <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-express-quote')">Cerrar</button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn-outline btn-sm" onclick="copyExpressQuote()" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">
+            <i class="fa-solid fa-copy"></i> Copiar Mensaje
+          </button>
+          <button type="button" class="btn-success btn-sm" onclick="sendExpressQuoteWhatsApp()" style="font-weight: 700;">
+            <i class="fa-brands fa-whatsapp"></i> Abrir en WhatsApp
+          </button>
+          <button type="button" class="btn-primary btn-sm" onclick="createOrderFromExpressQuote()">
+            <i class="fa-solid fa-cart-plus"></i> Crear Encargo
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Bitácora de Trucos y Parámetros -->
+  <div id="modal-print-tips" class="modal-overlay">
+    <div class="modal-content" style="max-width: 680px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-lightbulb text-amber"></i> Bitácora de Trucos y Parámetros del Taller</h4>
+        <button class="modal-close" onclick="closeModal('modal-print-tips')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs text-muted mb-3">
+          Historial de trucos de laminación, adherencia, temperaturas y advertencias aprendidas en tus piezas para no volver a cometer los mismos errores.
+        </p>
+        <input type="text" id="tips-search-input" class="form-control text-xs mb-3" placeholder="Filtrar por nombre de pieza o truco..." oninput="renderPrintTipsList()">
+        <div id="tips-items-container" class="d-flex flex-column gap-2" style="max-height: 400px; overflow-y: auto;">
+          <!-- Injected dynamically -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" onclick="closeModal('modal-print-tips')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Compartir Catálogo Web con Clientes -->
+  <div id="modal-share-catalog" class="modal-overlay">
+    <div class="modal-content" style="max-width: 520px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-share-nodes text-emerald"></i> Catálogo Web para Clientes</h4>
+        <button class="modal-close" onclick="closeModal('modal-share-catalog')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs text-muted mb-3">
+          Comparte tu catálogo comercial público con tus clientes. Podrán ver tus modelos terminados con fotos y precios orientativos, y pedirte piezas directamente por WhatsApp. Tus costes y márgenes internos permanecen 100% ocultos.
+        </p>
+
+        <div class="form-group mb-3">
+          <label class="form-label text-xs fw-bold text-white">Enlace Público de tu Catálogo:</label>
+          <input type="text" id="share-catalog-url" class="form-control text-xs" readonly onclick="this.select()">
+        </div>
+
+        <div class="d-flex flex-column gap-2">
+          <button type="button" class="btn-success w-100 btn-md" onclick="shareCatalogByWhatsApp()" style="font-weight: 700;">
+            <i class="fa-brands fa-whatsapp"></i> Compartir por WhatsApp
+          </button>
+          <button type="button" class="btn-primary w-100 btn-md" onclick="copyCatalogLink()">
+            <i class="fa-solid fa-copy"></i> Copiar Enlace al Portapapeles
+          </button>
+          <button type="button" class="btn-outline w-100 btn-sm" onclick="previewCatalogPage()">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir Vista Previa en Nueva Pestaña
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" onclick="closeModal('modal-share-catalog')">Cerrar</button>
       </div>
     </div>
   </div>

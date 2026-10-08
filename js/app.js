@@ -1706,6 +1706,38 @@ function renderPrinters() {
                 </div>
             </div>
 
+            <!-- Retorno de Inversión (ROI) y Amortización -->
+            ${(() => {
+                const purchasePrice = parseFloat(p.purchasePrice || 0);
+                if (purchasePrice > 0) {
+                    const roiPct = Math.round((totalRev / purchasePrice) * 100);
+                    const isAmortized = totalRev >= purchasePrice;
+                    const diff = totalRev - purchasePrice;
+                    return `
+                        <div class="p-2 mt-2 rounded" style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.25);">
+                            <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:11px;">
+                                <span class="text-white"><i class="fa-solid fa-coins text-amber mr-1"></i> Amortización / ROI:</span>
+                                <span class="fw-bold ${isAmortized ? 'text-emerald' : 'text-cyan'}">${roiPct}% amortizada</span>
+                            </div>
+                            <div style="height:6px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden;">
+                                <div style="width:${Math.min(100, roiPct)}%; background:${isAmortized ? '#10b981' : '#00d2ff'}; height:100%;"></div>
+                            </div>
+                            <div class="d-flex justify-content-between text-muted mt-1" style="font-size:10.5px;">
+                                <span>Compra: <strong>${purchasePrice.toFixed(0)} €</strong></span>
+                                <span>${isAmortized ? `<strong class="text-emerald">+${diff.toFixed(2)} € ganancia</strong>` : `Faltan <strong>${Math.abs(diff).toFixed(2)} €</strong>`}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="p-2 mt-2 rounded" style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1); font-size:11px; display:flex; justify-content:space-between; align-items:center;">
+                            <span class="text-muted"><i class="fa-solid fa-coins text-dim mr-1"></i> Coste de compra sin fijar</span>
+                            <button class="btn-xs btn-outline" onclick="editPrinter('${p.id}')">Fijar coste</button>
+                        </div>
+                    `;
+                }
+            })()}
+
             <div style="display:flex; gap:6px; margin-top:14px;">
                 <button class="btn btn-outline btn-sm w-100 text-cyan" onclick="openPrinterProfile('${p.id}')">
                     <i class="fa-solid fa-chart-column"></i> Perfil & Beneficio
@@ -2243,6 +2275,11 @@ function openOrderModalWithDefaults() {
     const rmaReason = document.getElementById('order-rma-reason');
     if (rmaReason) rmaReason.value = '';
 
+    const notesInp = document.getElementById('order-print-notes');
+    if (notesInp) notesInp.value = '';
+    const tipBanner = document.getElementById('order-tips-banner');
+    if (tipBanner) { tipBanner.style.display = 'none'; tipBanner.innerHTML = ''; }
+
     populatePickers();
     if (state.filaments.length > 0) selectPicker('order-filament', state.filaments[0].id);
     if (state.printers.length > 0) selectPicker('order-printer', state.printers[0].id);
@@ -2271,6 +2308,11 @@ window.editOrder = function(id) {
     const rmaReason = document.getElementById('order-rma-reason');
     if (rmaReason) rmaReason.value = o.rmaReason || '';
     
+    const notesInp = document.getElementById('order-print-notes');
+    if (notesInp) notesInp.value = o.printNotes || '';
+    const tipBanner = document.getElementById('order-tips-banner');
+    if (tipBanner) { tipBanner.style.display = 'none'; tipBanner.innerHTML = ''; }
+
     const statusMap = { 'Presupuesto': 'pending', 'En Cola': 'en-cola', 'Imprimiendo': 'printing', 'Post-Proceso': 'post', 'Listo': 'done', 'Entregado': 'delivered' };
     document.getElementById('order-status').value = statusMap[o.status] || 'pending';
     
@@ -2310,6 +2352,7 @@ function saveOrder() {
     const deadlineInput = document.getElementById('order-deadline')?.value;
     const isRma = document.getElementById('order-is-rma')?.checked || false;
     const rmaReason = document.getElementById('order-rma-reason')?.value?.trim() || '';
+    const printNotes = document.getElementById('order-print-notes')?.value?.trim() || '';
 
     const statusMap = { 'pending': 'Presupuesto', 'en-cola': 'En Cola', 'printing': 'Imprimiendo', 'post': 'Post-Proceso', 'done': 'Listo', 'delivered': 'Entregado' };
     const status = statusMap[statusRaw] || 'Presupuesto';
@@ -2347,6 +2390,7 @@ function saveOrder() {
         date: existing ? existing.date : new Date().toISOString(),
         isRma,
         rmaReason,
+        printNotes: printNotes || (existing?.printNotes || ''),
         changelog
     };
     
@@ -5050,3 +5094,357 @@ window.filterCatalogCategory = filterCatalogCategory;
 window.renderCatalog = renderCatalog;
 window.shareCalcQuoteWhatsApp = shareCalcQuoteWhatsApp;
 window.exportCatalogPDF = exportCatalogPDF;
+
+// ==========================================================================
+// NUEVAS MEJORAS DE NEGOCIO Y TALLER: TRUCOS, COTIZADOR EXPRESS Y CATÁLOGO WEB
+// ==========================================================================
+
+// --- MEJORA 6: BITÁCORA DE TRUCOS, PARÁMETROS Y RECORDATORIOS POR MODELO ---
+function lookupModelPrintNotes(val) {
+    const tipBanner = document.getElementById('order-tips-banner');
+    if (!tipBanner) return;
+
+    if (!val || val.trim().length < 2) {
+        tipBanner.style.display = 'none';
+        tipBanner.innerHTML = '';
+        return;
+    }
+
+    const query = val.toLowerCase().trim();
+
+    // 1. Check in catalog items first
+    let match = state.catalog.find(c => c.name.toLowerCase().includes(query) && c.notes);
+    let tipText = match ? match.notes : '';
+    let matchItem = match;
+
+    // 2. If not found, check past orders with printNotes
+    if (!matchItem) {
+        const orderMatch = state.orders.find(o => o.title && o.title.toLowerCase().includes(query) && o.printNotes);
+        if (orderMatch) {
+            tipText = orderMatch.printNotes;
+            matchItem = orderMatch;
+        }
+    }
+
+    if (matchItem && tipText) {
+        tipBanner.style.display = 'block';
+        tipBanner.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                <div>
+                    <i class="fa-solid fa-lightbulb text-amber mr-1"></i>
+                    <strong>Truco recordado para "${escapeHtml(matchItem.name || matchItem.title)}":</strong>
+                    <span style="color:#fde68a;">${escapeHtml(tipText)}</span>
+                </div>
+                ${matchItem.weight ? `
+                    <button type="button" class="btn-outline btn-xs" onclick="applyModelPreset('${matchItem.id}')" style="white-space:nowrap; border-color:rgba(245,158,11,0.5); color:#fbbf24;">
+                        Aplicar valores
+                    </button>
+                ` : ''}
+            </div>
+        `;
+    } else {
+        tipBanner.style.display = 'none';
+        tipBanner.innerHTML = '';
+    }
+}
+
+function applyModelPreset(id) {
+    const cat = state.catalog.find(c => c.id === id);
+    if (cat) {
+        if (cat.weight) document.getElementById('order-weight').value = cat.weight;
+        if (cat.time) document.getElementById('order-time').value = cat.time;
+        if (cat.price) document.getElementById('order-price').value = cat.price;
+        if (cat.notes) {
+            const notesInp = document.getElementById('order-print-notes');
+            if (notesInp) notesInp.value = cat.notes;
+        }
+        calculateOrderSuggestedPrice();
+        showToast(`Valores y trucos aplicados de "${cat.name}"`, 'success');
+        playChime('success');
+    }
+}
+
+function openPrintTipsModal() {
+    renderPrintTipsList();
+    openModal('modal-print-tips');
+}
+
+function renderPrintTipsList() {
+    const container = document.getElementById('tips-items-container');
+    const query = (document.getElementById('tips-search-input')?.value || '').toLowerCase().trim();
+    if (!container) return;
+
+    const tips = [];
+    state.catalog.forEach(c => {
+        if (c.notes && c.notes.trim()) {
+            tips.push({
+                source: 'Catálogo',
+                name: c.name,
+                category: c.category,
+                material: c.material,
+                weight: c.weight,
+                time: c.time,
+                notes: c.notes
+            });
+        }
+    });
+
+    state.orders.forEach(o => {
+        if (o.printNotes && o.printNotes.trim() && !tips.some(t => t.name.toLowerCase() === o.title.toLowerCase())) {
+            tips.push({
+                source: 'Encargo',
+                name: o.title,
+                category: 'Taller',
+                material: 'FDM',
+                weight: o.weight,
+                time: o.time,
+                notes: o.printNotes
+            });
+        }
+    });
+
+    const filtered = tips.filter(t => 
+        !query || 
+        t.name.toLowerCase().includes(query) || 
+        t.notes.toLowerCase().includes(query) ||
+        (t.material && t.material.toLowerCase().includes(query))
+    );
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div class="text-xs text-muted text-center py-4">No hay trucos registrados que coincidan con la búsqueda.</div>`;
+        return;
+    }
+
+    container.innerHTML = filtered.map(t => `
+        <div class="p-3 rounded" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <div>
+                    <strong class="text-white text-sm">${escapeHtml(t.name)}</strong>
+                    <span class="badge ml-1" style="background:rgba(0,210,255,0.15); color:#00d2ff; font-size:10px;">${escapeHtml(t.material || 'PLA')}</span>
+                </div>
+                <span class="text-xs text-muted">${t.weight ? `${t.weight}g · ${t.time}h` : ''}</span>
+            </div>
+            <div class="p-2 rounded mt-2" style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25); color:#fbbf24; font-size:12px;">
+                <i class="fa-solid fa-lightbulb mr-1"></i> <strong>Parámetros & Truco:</strong> ${escapeHtml(t.notes)}
+            </div>
+        </div>
+    `).join('');
+}
+
+// --- MEJORA 4: COTIZADOR RÁPIDO EXPRESS WHATSAPP (SIN ARCHIVO) ---
+let currentExpressQuoteData = null;
+
+function openExpressQuoteModal() {
+    calculateExpressQuote();
+    openModal('modal-express-quote');
+}
+
+function calculateExpressQuote() {
+    const type = document.getElementById('eq-type')?.value || 'figura';
+    const size = document.getElementById('eq-size')?.value || 'mediano';
+    const density = document.getElementById('eq-density')?.value || 'decorativo';
+    const material = document.getElementById('eq-material')?.value || 'PLA+';
+
+    const sizeMatrix = {
+        mini: { weightMin: 25, weightMax: 45, timeMin: 1.5, timeMax: 3.0, delay: '24 horas', label: 'Pequeño (< 8 cm)' },
+        mediano: { weightMin: 80, weightMax: 150, timeMin: 4.0, timeMax: 7.5, delay: '24 - 48 horas', label: 'Mediano (8 - 15 cm)' },
+        grande: { weightMin: 220, weightMax: 420, timeMin: 11.0, timeMax: 20.0, delay: '2 - 3 días', label: 'Grande (15 - 25 cm)' },
+        gigante: { weightMin: 600, weightMax: 1050, timeMin: 30.0, timeMax: 50.0, delay: '4 - 6 días', label: 'Muy Grande (> 25 cm)' }
+    };
+
+    const typeNames = {
+        figura: 'Figura / Miniatura (Detalle)',
+        llavero: 'Llavero / Accesorio',
+        tecnica: 'Pieza Técnica / Soporte Mecánico',
+        cosplay: 'Cosplay / Casco / Prop',
+        caja: 'Caja / Carcasa'
+    };
+
+    const densityMult = {
+        decorativo: 1.0,
+        reforzado: 1.35,
+        solido: 1.85
+    }[density] || 1.0;
+
+    const typeTimeMult = {
+        figura: 1.15,
+        llavero: 0.85,
+        tecnica: 1.2,
+        cosplay: 1.1,
+        caja: 0.95
+    }[type] || 1.0;
+
+    const base = sizeMatrix[size] || sizeMatrix.mediano;
+    const estWeightMin = Math.round(base.weightMin * densityMult);
+    const estWeightMax = Math.round(base.weightMax * densityMult);
+    const estTimeMin = parseFloat((base.timeMin * typeTimeMult).toFixed(1));
+    const estTimeMax = parseFloat((base.timeMax * typeTimeMult).toFixed(1));
+
+    let costPerKg = 20.0;
+    if (material === 'PETG') costPerKg = 22.0;
+    if (material === 'TPU') costPerKg = 32.0;
+    if (material === 'Resina SLA') costPerKg = 28.0;
+
+    const kwhCost = parseFloat(state.electricityTariff) || 0.18;
+    const machineWear = 0.20;
+
+    const costMin = (estWeightMin / 1000) * costPerKg + estTimeMin * (0.25 * kwhCost + machineWear);
+    const costMax = (estWeightMax / 1000) * costPerKg + estTimeMax * (0.25 * kwhCost + machineWear);
+
+    let priceMin = Math.max(6.0, Math.round((costMin * 2.2) * 2) / 2);
+    let priceMax = Math.max(priceMin + 3.0, Math.round((costMax * 2.6) * 2) / 2);
+
+    currentExpressQuoteData = {
+        type: typeNames[type] || type,
+        sizeLabel: base.label,
+        material,
+        weightAvg: Math.round((estWeightMin + estWeightMax) / 2),
+        timeAvg: parseFloat(((estTimeMin + estTimeMax) / 2).toFixed(1)),
+        priceAvg: parseFloat(((priceMin + priceMax) / 2).toFixed(2)),
+        priceMin,
+        priceMax,
+        delay: base.delay
+    };
+
+    const priceRangeEl = document.getElementById('eq-price-range');
+    if (priceRangeEl) priceRangeEl.textContent = `${priceMin.toFixed(2)} € - ${priceMax.toFixed(2)} €`;
+
+    const statsEl = document.getElementById('eq-stats');
+    if (statsEl) statsEl.textContent = `~${currentExpressQuoteData.weightAvg}g • ~${currentExpressQuoteData.timeAvg}h`;
+
+    const delayEl = document.getElementById('eq-delay');
+    if (delayEl) delayEl.textContent = base.delay;
+
+    const msg = `¡Hola! 👋 Para una pieza de tipo *${typeNames[type]}* de tamaño *${base.label}* en material *${material}*:\n\n📦 *Presupuesto estimado:* entre *${priceMin.toFixed(2)} €* y *${priceMax.toFixed(2)} €*\n⏱️ *Plazo de fabricación:* ${base.delay}\n\nSi tienes el archivo 3D (.stl, .obj) o una foto, envíamelo para confirmarte el precio exacto al céntimo. ¿Te reservo un hueco en la máquina? 🚀`;
+
+    const msgEl = document.getElementById('eq-whatsapp-msg');
+    if (msgEl) msgEl.value = msg;
+}
+
+function copyExpressQuote() {
+    const msgEl = document.getElementById('eq-whatsapp-msg');
+    if (!msgEl || !msgEl.value) return;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(msgEl.value).then(() => {
+            showToast('📋 ¡Mensaje para WhatsApp copiado al portapapeles!', 'success');
+        }).catch(() => {
+            msgEl.select();
+            document.execCommand('copy');
+            showToast('📋 Mensaje copiado', 'success');
+        });
+    } else {
+        msgEl.select();
+        document.execCommand('copy');
+        showToast('📋 Mensaje copiado', 'success');
+    }
+    playChime('success');
+}
+
+function sendExpressQuoteWhatsApp() {
+    const msgEl = document.getElementById('eq-whatsapp-msg');
+    if (!msgEl || !msgEl.value) return;
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(msgEl.value)}`;
+    window.open(waUrl, '_blank');
+}
+
+function createOrderFromExpressQuote() {
+    if (!currentExpressQuoteData) return;
+    closeModal('modal-express-quote');
+    switchTab('tab-orders');
+    openOrderModalWithDefaults();
+
+    setTimeout(() => {
+        const itemInput = document.getElementById('order-item');
+        const weightInput = document.getElementById('order-weight');
+        const timeInput = document.getElementById('order-time');
+        const priceInput = document.getElementById('order-price');
+
+        if (itemInput) itemInput.value = `Encargo: ${currentExpressQuoteData.type} (${currentExpressQuoteData.sizeLabel})`;
+        if (weightInput) weightInput.value = currentExpressQuoteData.weightAvg;
+        if (timeInput) timeInput.value = currentExpressQuoteData.timeAvg;
+        if (priceInput) priceInput.value = currentExpressQuoteData.priceAvg;
+
+        showToast('Presupuesto express volcado en el formulario de encargo', 'info');
+        playChime('success');
+    }, 60);
+}
+
+// --- MEJORA 1: COMPARTIR CATÁLOGO WEB PÚBLICO CON CLIENTES ---
+function shareClientCatalog() {
+    try {
+        const publicCatalog = (state.catalog || []).map(c => ({
+            id: c.id,
+            name: c.name,
+            category: c.category || 'General',
+            material: c.material || 'PLA+',
+            price: parseFloat(c.price || 0),
+            weight: c.weight || null,
+            time: c.time || null,
+            icon: c.icon || 'fa-solid fa-cube',
+            notes: c.notes || '',
+            photo: c.photo || null
+        }));
+
+        const jsonStr = JSON.stringify(publicCatalog);
+        const b64 = btoa(unescape(encodeURIComponent(jsonStr)));
+        const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '').replace(/\/$/, '') + '/catalogo.html';
+        const catalogUrl = `${baseUrl}?data=${encodeURIComponent(b64)}`;
+
+        const input = document.getElementById('share-catalog-url');
+        if (input) input.value = catalogUrl;
+
+        openModal('modal-share-catalog');
+    } catch (e) {
+        console.error('Error generating catalog link:', e);
+        showToast('Error al generar enlace del catálogo: ' + e.message, 'error');
+    }
+}
+
+function copyCatalogLink() {
+    const input = document.getElementById('share-catalog-url');
+    if (!input || !input.value) return;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(input.value).then(() => {
+            showToast('📋 ¡Enlace del catálogo copiado al portapapeles!', 'success');
+        }).catch(() => {
+            input.select();
+            document.execCommand('copy');
+            showToast('📋 Enlace copiado', 'success');
+        });
+    } else {
+        input.select();
+        document.execCommand('copy');
+        showToast('📋 Enlace copiado', 'success');
+    }
+    playChime('success');
+}
+
+function shareCatalogByWhatsApp() {
+    const input = document.getElementById('share-catalog-url');
+    if (!input || !input.value) return;
+    const msg = `¡Hola! 👋 Aquí tienes nuestro catálogo de modelos y piezas 3D terminadas con fotos y precios orientativos:\n\n${input.value}\n\nPuedes echarle un vistazo y encargar el que más te guste directamente con un clic 🚀`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function previewCatalogPage() {
+    const input = document.getElementById('share-catalog-url');
+    if (input && input.value) {
+        window.open(input.value, '_blank');
+    }
+}
+
+// Window bindings for features 1, 4, 5, 6
+window.lookupModelPrintNotes = lookupModelPrintNotes;
+window.applyModelPreset = applyModelPreset;
+window.openPrintTipsModal = openPrintTipsModal;
+window.renderPrintTipsList = renderPrintTipsList;
+window.openExpressQuoteModal = openExpressQuoteModal;
+window.calculateExpressQuote = calculateExpressQuote;
+window.copyExpressQuote = copyExpressQuote;
+window.sendExpressQuoteWhatsApp = sendExpressQuoteWhatsApp;
+window.createOrderFromExpressQuote = createOrderFromExpressQuote;
+window.shareClientCatalog = shareClientCatalog;
+window.copyCatalogLink = copyCatalogLink;
+window.shareCatalogByWhatsApp = shareCatalogByWhatsApp;
+window.previewCatalogPage = previewCatalogPage;
+
