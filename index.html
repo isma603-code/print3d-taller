@@ -174,6 +174,9 @@
           <button class="btn-outline btn-sm d-none d-lg-inline-flex" onclick="openElectricityConfigModal()" title="Configurar coste de la electricidad (€/kWh)">
             <i class="fa-solid fa-bolt text-amber"></i> <span id="header-tariff-val">0.18 €/kWh</span>
           </button>
+          <button class="btn-outline btn-sm d-none d-lg-inline-flex" onclick="openPaymentConfigModal()" title="Configurar enlaces directos de cobro (Bizum / Revolut / PayPal)">
+            <i class="fa-solid fa-credit-card text-emerald"></i> <span>Cobro Rápido</span>
+          </button>
           <button class="btn-outline btn-sm" onclick="toggleDarkMode()" id="btn-dark-mode" title="Cambiar tema">
             <i class="fa-solid fa-circle-half-stroke"></i> <span class="d-none d-sm-inline">Tema</span>
           </button>
@@ -768,6 +771,39 @@
                       <option value="1.15">Media / Soportes (+15%)</option>
                       <option value="1.30">Alta / Riesgo despegue (+30%)</option>
                     </select>
+                  </div>
+
+                  <!-- Simulador de Boquillas / Nozzle -->
+                  <div class="mt-2 p-2 rounded bg-dark border border-secondary d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <span class="text-xs text-muted"><i class="fa-solid fa-crosshairs text-cyan mr-1"></i> Boquilla / Nozzle:</span>
+                    <select id="calc-nozzle-size" class="form-select text-xs w-auto py-1" onchange="calculateNozzleImpact()">
+                      <option value="0.2">0.2 mm (Ultra Detalle / Miniatura)</option>
+                      <option value="0.4" selected>0.4 mm (Estándar habitual)</option>
+                      <option value="0.6">0.6 mm (Rápido / Estructural -35% tiempo)</option>
+                      <option value="0.8">0.8 mm (Modo Bestia / Grandes -60% tiempo)</option>
+                    </select>
+                  </div>
+                  <div id="calc-nozzle-tip" class="text-xs text-muted px-2 py-1" style="display: none; color: #38bdf8 !important;"></div>
+
+                  <!-- Asesor Inteligente de Resistencia Mecánica (Paredes vs Relleno) -->
+                  <div class="calculator-extra-box mt-2 p-3 rounded" style="background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.2);">
+                    <div class="d-flex justify-content-between align-items-center mb-1" onclick="toggleCalcSection('calc-strength-details')" style="cursor: pointer;">
+                      <span class="text-xs fw-bold text-emerald"><i class="fa-solid fa-shield-halved mr-1"></i> Asesor de Resistencia (Paredes vs Relleno)</span>
+                      <i class="fa-solid fa-chevron-down text-dim text-xs" id="calc-strength-icon"></i>
+                    </div>
+                    <div id="calc-strength-details" style="display: none; margin-top: 8px;">
+                      <label class="form-label text-xs text-muted mb-1">Tipo de esfuerzo de la pieza:</label>
+                      <select id="calc-strength-preset" class="form-select text-xs mb-2" onchange="applyStrengthPreset(this.value)">
+                        <option value="custom">Personalizado (Manual)</option>
+                        <option value="decor">🌸 Decorativo / Visual (2 paredes • 10% giroide)</option>
+                        <option value="daily" selected>🏠 Uso doméstico ligero (3 paredes • 18% giroide)</option>
+                        <option value="heavy">🏋️ Carga pesada / Soporte >10 kg (5 paredes • 40% cúbico)</option>
+                        <option value="watertight">💧 Estanco a líquidos (6 paredes concéntricas • 100%)</option>
+                      </select>
+                      <div id="calc-strength-tip" class="p-2 rounded bg-dark border border-secondary text-xs" style="color: #6ee7b7; line-height: 1.4;">
+                        <i class="fa-solid fa-lightbulb text-amber mr-1"></i> El 80% de la resistencia mecánica viene del <strong>número de paredes exteriores</strong>, no del relleno interior.
+                      </div>
+                    </div>
                   </div>
 
                   <!-- Hardware & Acabados Extra -->
@@ -2841,6 +2877,94 @@
           <button class="btn-outline btn-sm text-cyan" onclick="copyMaterialGuideToClipboard()"><i class="fa-solid fa-copy"></i> Copiar Guía</button>
           <button class="btn-success btn-sm" onclick="shareMaterialGuideWhatsApp()"><i class="fa-brands fa-whatsapp"></i> Compartir por WhatsApp</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 19: Quick Payment Config (Bizum, Revolut, PayPal) -->
+  <div id="modal-payment-config" class="modal-overlay">
+    <div class="modal-content" style="max-width: 520px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-credit-card text-emerald mr-2"></i> Métodos de Cobro Rápido</h4>
+        <button class="modal-close" onclick="closeModal('modal-payment-config')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs text-muted mb-3">
+          Configura tus canales de cobro para que aparezcan automáticamente como enlaces de pago en 1 clic en los presupuestos de WhatsApp y PDF:
+        </p>
+        <div class="form-group mb-3">
+          <label class="form-label text-xs fw-bold"><i class="fa-solid fa-mobile-screen-button text-cyan mr-1"></i> Teléfono para Bizum:</label>
+          <input type="text" id="pay-cfg-bizum" class="form-control" placeholder="Ej. 612 34 56 78">
+          <div class="text-xs text-muted mt-1">Se indicará en el WhatsApp para que el cliente lo copie sin equivocarse.</div>
+        </div>
+        <div class="form-group mb-3">
+          <label class="form-label text-xs fw-bold"><i class="fa-solid fa-bolt text-purple mr-1"></i> Usuario / Tag de Revolut (opcional):</label>
+          <div class="d-flex align-items-center gap-2">
+            <span class="text-xs text-muted">revolut.me/</span>
+            <input type="text" id="pay-cfg-revolut" class="form-control" placeholder="tu_usuario">
+          </div>
+          <div class="text-xs text-muted mt-1">Genera un enlace directo donde el cliente paga con Apple Pay, Google Pay o tarjeta.</div>
+        </div>
+        <div class="form-group mb-3">
+          <label class="form-label text-xs fw-bold"><i class="fa-brands fa-paypal text-primary mr-1"></i> Usuario de PayPal.Me (opcional):</label>
+          <div class="d-flex align-items-center gap-2">
+            <span class="text-xs text-muted">paypal.me/</span>
+            <input type="text" id="pay-cfg-paypal" class="form-control" placeholder="tu_taller">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" onclick="closeModal('modal-payment-config')">Cancelar</button>
+        <button class="btn-success" onclick="savePaymentConfig()"><i class="fa-solid fa-check"></i> Guardar Métodos</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 20: Printer Maintenance Check -->
+  <div id="modal-printer-maintenance" class="modal-overlay">
+    <div class="modal-content" style="max-width: 520px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-wrench text-amber mr-2"></i> Mantenimiento Preventivo</h4>
+        <button class="modal-close" onclick="closeModal('modal-printer-maintenance')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="maint-printer-id">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <i class="fa-solid fa-print text-cyan" style="font-size: 20px;"></i>
+          <div>
+            <strong id="maint-printer-name" class="text-white">Impresora</strong>
+            <div id="maint-printer-hours" class="text-xs text-muted">Horas de máquina acumuladas</div>
+          </div>
+        </div>
+
+        <p class="text-xs text-muted mb-2">Marca las tareas que has realizado para resetear sus contadores de taller:</p>
+        <div class="d-flex flex-column gap-2">
+          <label class="p-3 rounded bg-dark border border-secondary d-flex align-items-start gap-3 cursor-pointer">
+            <input type="checkbox" id="maint-task-clean" class="mt-1" style="width: 18px; height: 18px;">
+            <div>
+              <strong class="text-xs text-white d-block">Limpieza de ventiladores y extrusor (Ciclo 150h)</strong>
+              <span class="text-xs text-muted">Retirar restos de filamento, soplado de polvo en electrónica y turbinas de capa.</span>
+            </div>
+          </label>
+          <label class="p-3 rounded bg-dark border border-secondary d-flex align-items-start gap-3 cursor-pointer">
+            <input type="checkbox" id="maint-task-lube" class="mt-1" style="width: 18px; height: 18px;">
+            <div>
+              <strong class="text-xs text-white d-block">Engrase y lubricación de varillas/guías (Ciclo 300h)</strong>
+              <span class="text-xs text-muted">Limpieza de varilla Z y aplicación de grasa sintética con PTFE o aceite fino.</span>
+            </div>
+          </label>
+          <label class="p-3 rounded bg-dark border border-secondary d-flex align-items-start gap-3 cursor-pointer">
+            <input type="checkbox" id="maint-task-belts" class="mt-1" style="width: 18px; height: 18px;">
+            <div>
+              <strong class="text-xs text-white d-block">Revisión de correas y tubo PTFE (Ciclo 500h)</strong>
+              <span class="text-xs text-muted">Comprobación de tensión en ejes X/Y y estado interno del tubo bowden.</span>
+            </div>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" onclick="closeModal('modal-printer-maintenance')">Cancelar</button>
+        <button class="btn-primary" onclick="saveMaintenanceLog()"><i class="fa-solid fa-check"></i> Registrar y Poner al Día</button>
       </div>
     </div>
   </div>

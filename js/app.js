@@ -116,6 +116,14 @@ function loadState() {
             if (!state.monthlyProfitGoal) state.monthlyProfitGoal = 1200;
             if (state.hourlyFixedCost === undefined) state.hourlyFixedCost = 0.00;
             if (!state.minimumOrderFee) state.minimumOrderFee = 5.00;
+            if (!state.paymentConfig) state.paymentConfig = { bizumPhone: '612 34 56 78', revolutTag: '', paypalUser: '' };
+            if (state.printers) {
+                for (let i = 0; i < state.printers.length; i++) {
+                    if (state.printers[i].lastCleanHours === undefined) state.printers[i].lastCleanHours = 0;
+                    if (state.printers[i].lastLubeHours === undefined) state.printers[i].lastLubeHours = 0;
+                    if (state.printers[i].lastBeltHours === undefined) state.printers[i].lastBeltHours = 0;
+                }
+            }
             if (state.orders) {
                 for (let i = 0; i < state.orders.length; i++) {
                     if (!state.orders[i].changelog) state.orders[i].changelog = [];
@@ -303,17 +311,20 @@ function shareCalcQuoteWhatsApp() {
     const weight = document.getElementById('calc-weight')?.value || 0;
     const time = document.getElementById('calc-time')?.value || 0;
     const price = document.getElementById('calc-suggested-price')?.textContent || '0.00 €';
+    const priceNum = parseFloat(price.replace('€', '').trim()) || 0;
 
     const expiry = new Date();
     expiry.setDate(expiry.getDate() + 15);
     const expiryFormatted = expiry.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    const paymentText = typeof getPaymentLinksText === 'function' ? getPaymentLinksText(priceNum.toFixed(2), 'PRE-3D') : '';
     
     const msg = `¡Hola! Aquí tienes el presupuesto para tu pieza 3D:\n\n` +
                 `📦 *Pieza:* ${itemName}\n` +
                 `⚖️ *Peso estimado:* ${weight} g\n` +
                 `⏱️ *Tiempo de impresión:* ~${time} horas\n` +
                 `💶 *Precio final:* ${price} (IVA incl.)\n` +
-                `📅 *Validez del presupuesto:* 15 días laborables (hasta el ${expiryFormatted}) sujeto a cola de taller.\n\n` +
+                `📅 *Validez del presupuesto:* 15 días laborables (hasta el ${expiryFormatted}) sujeto a cola de taller.\n` +
+                paymentText + `\n` +
                 `¿Deseas confirmarlo para que lo pongamos en cola de impresión en el taller? 🚀`;
                 
     const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
@@ -968,6 +979,7 @@ function sendBudgetWhatsApp(id) {
     const baseDate = o.date ? new Date(o.date) : new Date();
     const expiry = new Date(baseDate.getTime() + 15 * 24 * 60 * 60 * 1000);
     const expiryFormatted = expiry.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    const paymentText = typeof getPaymentLinksText === 'function' ? getPaymentLinksText(parseFloat(o.price || 0).toFixed(2), (o.id || '001').substring(0, 8).toUpperCase()) : '';
 
     const text = encodeURIComponent(
         `👋 ¡Hola ${o.client}!\n\n` +
@@ -976,7 +988,8 @@ function sendBudgetWhatsApp(id) {
         `⚖️ *Peso:* ${o.weight}g\n` +
         `⏱️ *Tiempo estimado:* ${o.time}h\n` +
         `💶 *Total:* ${parseFloat(o.price).toFixed(2)} € (IVA incl.)\n` +
-        `📅 *Validez comercial:* 15 días laborables (hasta el ${expiryFormatted}) sujeto a disponibilidad de máquinas.\n\n` +
+        `📅 *Validez comercial:* 15 días laborables (hasta el ${expiryFormatted}) sujeto a disponibilidad de máquinas.\n` +
+        paymentText + `\n` +
         `¿Desea confirmarlo para comenzar con la impresión en el taller?\n¡Muchas gracias!`
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
@@ -1783,6 +1796,29 @@ function renderPrinters() {
                         </div>
                     `;
                 }
+            })()}
+
+            <!-- Salud de Mantenimiento Preventivo (Ciclos 150h, 300h, 500h) -->
+            ${(() => {
+                const cleanElapsed = Math.max(0, hours - (p.lastCleanHours || 0));
+                const lubeElapsed = Math.max(0, hours - (p.lastLubeHours || 0));
+                const beltElapsed = Math.max(0, hours - (p.lastBeltHours || 0));
+                const isOverdue = cleanElapsed >= 150 || lubeElapsed >= 300 || beltElapsed >= 500;
+                return `
+                    <div class="p-2 mt-2 rounded" style="background: ${isOverdue ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255,255,255,0.02)'}; border: 1px solid ${isOverdue ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255,255,255,0.08)'}; font-size:11px;">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="${isOverdue ? 'text-danger fw-bold' : 'text-muted'}"><i class="fa-solid fa-wrench mr-1"></i> Mantenimiento:</span>
+                            <button class="btn-xs btn-outline ${isOverdue ? 'text-danger' : 'text-cyan'}" onclick="openMaintenanceCheckModal('${p.id}')">
+                                <i class="fa-solid fa-clipboard-check"></i> ${isOverdue ? '⚠️ Revisar' : 'Poner al día'}
+                            </button>
+                        </div>
+                        <div class="d-flex justify-content-between text-muted" style="font-size:10px;">
+                            <span title="Ciclo 150h: ventiladores y extrusor">🧹 Limpieza: <strong class="${cleanElapsed >= 150 ? 'text-danger' : 'text-white'}">${cleanElapsed.toFixed(0)}/150h</strong></span>
+                            <span title="Ciclo 300h: engrase varillas Z">🛢️ Engrase: <strong class="${lubeElapsed >= 300 ? 'text-danger' : 'text-white'}">${lubeElapsed.toFixed(0)}/300h</strong></span>
+                            <span title="Ciclo 500h: correas y bowden">⚙️ Correas: <strong class="${beltElapsed >= 500 ? 'text-danger' : 'text-white'}">${beltElapsed.toFixed(0)}/500h</strong></span>
+                        </div>
+                    </div>
+                `;
             })()}
 
             <div style="display:flex; gap:6px; margin-top:14px;">
@@ -5998,6 +6034,150 @@ window.openMaterialGuideModal = openMaterialGuideModal;
 window.shareMaterialGuideWhatsApp = shareMaterialGuideWhatsApp;
 window.copyMaterialGuideToClipboard = copyMaterialGuideToClipboard;
 window.sendPieceCareInstructions = sendPieceCareInstructions;
+
+// ==========================================================================
+// FEATURE 2: Enlace Directo de Pago Inmediato (Bizum, Revolut, PayPal.me)
+// ==========================================================================
+function openPaymentConfigModal() {
+    if (!state.paymentConfig) state.paymentConfig = { bizumPhone: '', revolutTag: '', paypalUser: '' };
+    const bizInp = document.getElementById('pay-cfg-bizum');
+    const revInp = document.getElementById('pay-cfg-revolut');
+    const payInp = document.getElementById('pay-cfg-paypal');
+    if (bizInp) bizInp.value = state.paymentConfig.bizumPhone || '';
+    if (revInp) revInp.value = state.paymentConfig.revolutTag || '';
+    if (payInp) payInp.value = state.paymentConfig.paypalUser || '';
+    openModal('modal-payment-config');
+}
+
+function savePaymentConfig() {
+    if (!state.paymentConfig) state.paymentConfig = {};
+    state.paymentConfig.bizumPhone = document.getElementById('pay-cfg-bizum')?.value?.trim() || '';
+    state.paymentConfig.revolutTag = document.getElementById('pay-cfg-revolut')?.value?.trim().replace(/^@/, '') || '';
+    state.paymentConfig.paypalUser = document.getElementById('pay-cfg-paypal')?.value?.trim() || '';
+    saveState();
+    closeModal('modal-payment-config');
+    showToast('💳 Métodos de cobro rápido guardados', 'success');
+}
+
+function getPaymentLinksText(priceNum, refText) {
+    const cfg = state.paymentConfig || {};
+    let text = '';
+    if (cfg.bizumPhone) {
+        text += `📲 *Bizum:* ${cfg.bizumPhone} (Concepto: ${refText || '3D'})\n`;
+    }
+    if (cfg.revolutTag && priceNum) {
+        text += `💳 *Tarjeta / Revolut:* https://revolut.me/${cfg.revolutTag}/${priceNum}\n`;
+    }
+    if (cfg.paypalUser && priceNum) {
+        text += `💳 *PayPal:* https://paypal.me/${cfg.paypalUser}/${priceNum}EUR\n`;
+    }
+    return text ? `\n💳 *Canales de Pago Directo:*\n${text}` : '';
+}
+
+// ==========================================================================
+// FEATURE 3 & 4: Simulador de Boquillas y Asesor de Resistencia Mecánica
+// ==========================================================================
+function calculateNozzleImpact() {
+    const nozzle = document.getElementById('calc-nozzle-size')?.value || '0.4';
+    const timeEl = document.getElementById('calc-time');
+    const tipEl = document.getElementById('calc-nozzle-tip');
+    const baseTime = parseFloat(timeEl?.value) || 0;
+
+    if (!tipEl) return;
+    if (nozzle === '0.4' || baseTime <= 0) {
+        tipEl.style.display = 'none';
+        return;
+    }
+
+    tipEl.style.display = 'block';
+    if (nozzle === '0.2') {
+        const estTime = (baseTime * 2.2).toFixed(1);
+        tipEl.innerHTML = `<i class="fa-solid fa-microscope text-cyan mr-1"></i> Boquilla 0.2mm (Ultra Detalle): Tardará aprox. <strong>${estTime}h</strong> (+120% tiempo). Ideal para miniaturas.`;
+    } else if (nozzle === '0.6') {
+        const estTime = (baseTime * 0.65).toFixed(1);
+        const saved = (baseTime - parseFloat(estTime)).toFixed(1);
+        tipEl.innerHTML = `<i class="fa-solid fa-bolt text-emerald mr-1"></i> Boquilla 0.6mm (Rápida): Tardará aprox. <strong>${estTime}h</strong> (¡Ahorras <strong>${saved}h</strong> de taller!).`;
+    } else if (nozzle === '0.8') {
+        const estTime = (baseTime * 0.40).toFixed(1);
+        const saved = (baseTime - parseFloat(estTime)).toFixed(1);
+        tipEl.innerHTML = `<i class="fa-solid fa-fire text-amber mr-1"></i> Boquilla 0.8mm (Modo Bestia): Tardará aprox. <strong>${estTime}h</strong> (¡Ahorras <strong>${saved}h</strong> de taller!). Ideal para macetas y cajas.`;
+    }
+}
+
+function applyStrengthPreset(preset) {
+    const tipEl = document.getElementById('calc-strength-tip');
+    if (!tipEl) return;
+
+    if (preset === 'decor') {
+        tipEl.innerHTML = `<i class="fa-solid fa-seedling text-cyan mr-1"></i> <strong>Decorativo / Visual:</strong> 2 paredes exteriores • 10% relleno giroide. Rápido y ligero para figuras.`;
+    } else if (preset === 'daily') {
+        tipEl.innerHTML = `<i class="fa-solid fa-house text-emerald mr-1"></i> <strong>Uso diario ligero:</strong> 3 paredes exteriores • 18% relleno giroide. Equilibrio perfecto para soportes de móvil o macetas.`;
+    } else if (preset === 'heavy') {
+        tipEl.innerHTML = `<i class="fa-solid fa-dumbbell text-amber mr-1"></i> <strong>Carga pesada (>10 kg):</strong> 5 paredes exteriores • 40% relleno cúbico. <em>El 80% de la fuerza viene del número de paredes, no del relleno.</em>`;
+    } else if (preset === 'watertight') {
+        tipEl.innerHTML = `<i class="fa-solid fa-droplet text-primary mr-1"></i> <strong>Estanco a agua / líquidos:</strong> 6 paredes concéntricas • 100% relleno. Máxima densidad para evitar microfugas.`;
+    } else {
+        tipEl.innerHTML = `<i class="fa-solid fa-sliders text-muted mr-1"></i> Ajuste manual de paredes y relleno en tu laminador.`;
+    }
+}
+
+// ==========================================================================
+// FEATURE 5: Mantenimiento Preventivo de Impresoras
+// ==========================================================================
+function openMaintenanceCheckModal(printerId) {
+    const p = state.printers.find(x => x.id === printerId);
+    if (!p) return;
+
+    const idInput = document.getElementById('maint-printer-id');
+    const nameEl = document.getElementById('maint-printer-name');
+    const hoursEl = document.getElementById('maint-printer-hours');
+    if (idInput) idInput.value = printerId;
+    if (nameEl) nameEl.textContent = p.name;
+    if (hoursEl) hoursEl.textContent = `${(p.hours || 0).toFixed(1)} horas acumuladas`;
+
+    const cleanElapsed = Math.max(0, (p.hours || 0) - (p.lastCleanHours || 0));
+    const lubeElapsed = Math.max(0, (p.hours || 0) - (p.lastLubeHours || 0));
+    const beltElapsed = Math.max(0, (p.hours || 0) - (p.lastBeltHours || 0));
+
+    const cleanChk = document.getElementById('maint-task-clean');
+    const lubeChk = document.getElementById('maint-task-lube');
+    const beltsChk = document.getElementById('maint-task-belts');
+    if (cleanChk) cleanChk.checked = cleanElapsed >= 150;
+    if (lubeChk) lubeChk.checked = lubeElapsed >= 300;
+    if (beltsChk) beltsChk.checked = beltElapsed >= 500;
+
+    openModal('modal-printer-maintenance');
+}
+
+function saveMaintenanceLog() {
+    const printerId = document.getElementById('maint-printer-id')?.value;
+    const p = state.printers.find(x => x.id === printerId);
+    if (!p) return;
+
+    const currentHours = p.hours || 0;
+    const cleanChk = document.getElementById('maint-task-clean')?.checked;
+    const lubeChk = document.getElementById('maint-task-lube')?.checked;
+    const beltsChk = document.getElementById('maint-task-belts')?.checked;
+
+    if (cleanChk) p.lastCleanHours = currentHours;
+    if (lubeChk) p.lastLubeHours = currentHours;
+    if (beltsChk) p.lastBeltHours = currentHours;
+
+    saveState();
+    renderPrinters();
+    closeModal('modal-printer-maintenance');
+    showToast(`🛠️ Mantenimiento registrado para ${p.name}`, 'success');
+    playChime('success');
+}
+
+// Window bindings for features 2, 3, 4, 5
+window.openPaymentConfigModal = openPaymentConfigModal;
+window.savePaymentConfig = savePaymentConfig;
+window.calculateNozzleImpact = calculateNozzleImpact;
+window.applyStrengthPreset = applyStrengthPreset;
+window.openMaintenanceCheckModal = openMaintenanceCheckModal;
+window.saveMaintenanceLog = saveMaintenanceLog;
+
 
 
 
