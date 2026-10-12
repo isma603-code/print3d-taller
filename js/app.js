@@ -115,9 +115,12 @@ function loadState() {
             if (state.lastBackupDate === undefined) state.lastBackupDate = null;
             if (!state.monthlyProfitGoal) state.monthlyProfitGoal = 1200;
             if (state.hourlyFixedCost === undefined) state.hourlyFixedCost = 0.00;
+            if (!state.minimumOrderFee) state.minimumOrderFee = 5.00;
             if (state.orders) {
                 for (let i = 0; i < state.orders.length; i++) {
                     if (!state.orders[i].changelog) state.orders[i].changelog = [];
+                    if (state.orders[i].depositPaid === undefined) state.orders[i].depositPaid = 0;
+                    if (!state.orders[i].paymentMethod) state.orders[i].paymentMethod = 'Bizum';
                 }
             }
             if (!state.catalog || state.catalog.length <= 2) {
@@ -141,6 +144,7 @@ function saveState() {
 }
 
 function seedDemoData(showEffects = true) {
+    state.minimumOrderFee = 5.00;
     state.filaments = [
         { id: generateId(), brand: 'eSun', material: 'PLA+', colorName: 'Negro Mate', hex: '#111827', maxWeight: 1000, currentWeight: 750, costPerKg: 19.90 },
         { id: generateId(), brand: 'Sunlu', material: 'PETG', colorName: 'Rojo Fuego', hex: '#ef4444', maxWeight: 1000, currentWeight: 420, costPerKg: 18.50 },
@@ -161,8 +165,8 @@ function seedDemoData(showEffects = true) {
     const dMinus2 = new Date(Date.now() - 2*86400000).toISOString().split('T')[0];
 
     state.orders = [
-        { id: generateId(), title: 'Casco Iron Man Mark 85', client: 'Tony Stark', filamentId: state.filaments[0].id, printerId: state.printers[0].id, weight: 850, time: 42, price: 175.00, deadline: dPlus1, status: 'Imprimiendo', date: new Date().toISOString(), changelog: [{ date: new Date().toISOString(), from: 'En Cola', to: 'Imprimiendo', note: 'Iniciada impresión en Bambu Lab' }] },
-        { id: generateId(), title: 'Dragón Articulado Cristal', client: 'Elena Gomez', filamentId: state.filaments[1].id, printerId: state.printers[1].id, weight: 160, time: 7.5, price: 24.50, deadline: dToday, status: 'Post-Proceso', date: new Date().toISOString(), changelog: [] },
+        { id: generateId(), title: 'Casco Iron Man Mark 85', client: 'Tony Stark', filamentId: state.filaments[0].id, printerId: state.printers[0].id, weight: 850, time: 42, price: 175.00, depositPaid: 80.00, paymentMethod: 'Bizum', deadline: dPlus1, status: 'Imprimiendo', date: new Date().toISOString(), changelog: [{ date: new Date().toISOString(), from: 'En Cola', to: 'Imprimiendo', note: 'Iniciada impresión en Bambu Lab' }] },
+        { id: generateId(), title: 'Dragón Articulado Cristal', client: 'Elena Gomez', filamentId: state.filaments[1].id, printerId: state.printers[1].id, weight: 160, time: 7.5, price: 24.50, depositPaid: 10.00, paymentMethod: 'Efectivo', deadline: dToday, status: 'Post-Proceso', date: new Date().toISOString(), changelog: [] },
         { id: generateId(), title: 'Engranaje Helicoidal Reductor', client: 'Talleres Mecánicos Norte', filamentId: state.filaments[2].id, printerId: state.printers[1].id, weight: 85, time: 3.5, price: 16.00, deadline: dPlus3, status: 'En Cola', date: new Date().toISOString(), changelog: [] },
         { id: generateId(), title: 'Busto Batman Dark Knight', client: 'Bruce Wayne', filamentId: state.filaments[3].id, printerId: state.printers[2].id, weight: 280, time: 14, price: 45.00, deadline: dMinus2, status: 'Entregado', date: new Date(Date.now() - 2*86400000).toISOString(), changelog: [] }
     ];
@@ -743,6 +747,17 @@ function renderOrdersKanban() {
                         } else {
                             return `<div class="mb-1"><span class="badge" style="background:rgba(245,158,11,0.15); color:#fbbf24; font-size:9.5px;"><i class="fa-solid fa-clock mr-1"></i> Válido ${daysLeft}d restantes</span></div>`;
                         }
+                    }
+                    return '';
+                })()}
+                ${(() => {
+                    const deposit = parseFloat(o.depositPaid || 0);
+                    const price = parseFloat(o.price || 0);
+                    if (deposit >= price && price > 0) {
+                        return `<div class="mb-1"><span class="badge" style="background:rgba(16,185,129,0.15); color:#10b981; font-size:9.5px;"><i class="fa-solid fa-circle-check mr-1"></i> Pagado 100% (${escapeHtml(o.paymentMethod || 'Bizum')})</span></div>`;
+                    } else if (deposit > 0) {
+                        const pending = Math.max(0, price - deposit);
+                        return `<div class="mb-1"><span class="badge" style="background:rgba(0,210,255,0.12); color:#00d2ff; font-size:9.5px;"><i class="fa-solid fa-hand-holding-dollar mr-1"></i> Señal: ${deposit.toFixed(2)}€ • Pend: ${pending.toFixed(2)}€</span></div>`;
                     }
                     return '';
                 })()}
@@ -2295,6 +2310,12 @@ function openOrderModalWithDefaults() {
     const tipBanner = document.getElementById('order-tips-banner');
     if (tipBanner) { tipBanner.style.display = 'none'; tipBanner.innerHTML = ''; }
 
+    const depInp = document.getElementById('order-deposit');
+    if (depInp) depInp.value = '0.00';
+    const payMet = document.getElementById('order-payment-method');
+    if (payMet) payMet.value = 'Bizum';
+    updateOrderBalanceIndicator();
+
     populatePickers();
     if (state.filaments.length > 0) selectPicker('order-filament', state.filaments[0].id);
     if (state.printers.length > 0) selectPicker('order-printer', state.printers[0].id);
@@ -2315,6 +2336,12 @@ window.editOrder = function(id) {
     document.getElementById('order-weight').value = o.weight;
     document.getElementById('order-time').value = o.time;
     document.getElementById('order-price').value = o.price;
+
+    const depInp = document.getElementById('order-deposit');
+    if (depInp) depInp.value = parseFloat(o.depositPaid || 0).toFixed(2);
+    const payMet = document.getElementById('order-payment-method');
+    if (payMet) payMet.value = o.paymentMethod || 'Bizum';
+    updateOrderBalanceIndicator();
     
     const rmaChk = document.getElementById('order-is-rma');
     if (rmaChk) rmaChk.checked = !!o.isRma;
@@ -2354,6 +2381,22 @@ window.editOrder = function(id) {
     openModal('modal-order');
 };
 
+window.updateOrderBalanceIndicator = function() {
+    const price = parseFloat(document.getElementById('order-price')?.value) || 0;
+    const deposit = parseFloat(document.getElementById('order-deposit')?.value) || 0;
+    const balInd = document.getElementById('order-balance-indicator');
+    if (balInd) {
+        const pending = Math.max(0, price - deposit);
+        if (deposit > 0 && pending === 0) {
+            balInd.innerHTML = '<span class="text-emerald fw-bold"><i class="fa-solid fa-check"></i> Pagado al 100%</span>';
+        } else if (deposit > 0) {
+            balInd.innerHTML = `Pendiente: <strong class="text-amber">${pending.toFixed(2)} €</strong>`;
+        } else {
+            balInd.innerHTML = `Pendiente: <strong class="text-white">${price.toFixed(2)} €</strong>`;
+        }
+    }
+};
+
 function saveOrder() {
     const id = document.getElementById('order-id').value || generateId();
     const title = document.getElementById('order-item')?.value?.trim();
@@ -2361,6 +2404,8 @@ function saveOrder() {
     const weight = parseFloat(document.getElementById('order-weight')?.value) || 0;
     const time = parseFloat(document.getElementById('order-time')?.value) || 0;
     const price = parseFloat(document.getElementById('order-price')?.value) || 0;
+    const depositPaid = parseFloat(document.getElementById('order-deposit')?.value) || 0;
+    const paymentMethod = document.getElementById('order-payment-method')?.value || 'Bizum';
     const statusRaw = document.getElementById('order-status')?.value;
     const filamentId = document.getElementById('order-filament-id')?.value;
     const printerId = document.getElementById('order-printer-id')?.value;
@@ -2397,6 +2442,8 @@ function saveOrder() {
         weight,
         time,
         price,
+        depositPaid,
+        paymentMethod,
         status,
         filamentId: filamentId || (state.filaments[0]?.id || ''),
         printerId: printerId || '',
@@ -2659,6 +2706,29 @@ window.showTicketModal = function(id) {
     document.getElementById('ticket-info').textContent = `${o.weight}g | ${o.time}h de impresión`;
     document.getElementById('ticket-total').textContent = `${parseFloat(o.price).toFixed(2)} €`;
     
+    const deposit = parseFloat(o.depositPaid || 0);
+    const price = parseFloat(o.price || 0);
+    const pending = Math.max(0, price - deposit);
+    const depRow = document.getElementById('ticket-deposit-row');
+    const pendRow = document.getElementById('ticket-pending-row');
+    const methEl = document.getElementById('ticket-payment-method');
+    const depVal = document.getElementById('ticket-deposit-val');
+    const pendVal = document.getElementById('ticket-pending-val');
+
+    if (depRow && pendRow) {
+        if (deposit > 0) {
+            depRow.style.display = 'flex';
+            if (methEl) methEl.textContent = o.paymentMethod || 'Bizum';
+            if (depVal) depVal.textContent = `${deposit.toFixed(2)} €`;
+
+            pendRow.style.display = 'flex';
+            if (pendVal) pendVal.textContent = `${pending.toFixed(2)} €`;
+        } else {
+            depRow.style.display = 'none';
+            pendRow.style.display = 'none';
+        }
+    }
+    
     openModal('modal-ticket');
 };
 
@@ -2714,17 +2784,78 @@ function loadCalcPreset(type) {
 function calculateQuote() {
     const weight = parseFloat(document.getElementById('calc-weight')?.value) || 0;
     const time = parseFloat(document.getElementById('calc-time')?.value) || 0;
-    const margin = parseFloat(document.getElementById('calc-profit-margin-slider')?.value) || 100;
-    
-    const costFilament = (20 / 1000) * weight;
-    const costPower = time * 0.25 * (parseFloat(state.electricityTariff) || 0.18);
-    const costWear = time * 0.15;
-    const costLabor = time * 0.5;
-    
-    const totalCost = costFilament + costPower + costWear + costLabor;
+    const margin = parseFloat(document.getElementById('calc-profit-margin-slider')?.value) || 180;
+    const riskFactor = parseFloat(document.getElementById('calc-risk-factor')?.value) || 1.0;
+
+    // Multicolor AMS / MMU
+    const multiEnabled = document.getElementById('calc-multicolor-enabled')?.checked || false;
+    const multiCount = parseInt(document.getElementById('calc-multicolor-count')?.value) || 2;
+    let purgeGrams = 0;
+    let extraMultiTime = 0;
+    if (multiEnabled && weight > 0) {
+        if (multiCount === 2) purgeGrams = weight * 0.25;
+        else if (multiCount === 3) purgeGrams = weight * 0.45;
+        else purgeGrams = weight * 0.65;
+        extraMultiTime = (multiCount - 1) * 0.4;
+    }
+    const purgeInfo = document.getElementById('calc-multicolor-purge-info');
+    if (purgeInfo) {
+        purgeInfo.textContent = multiEnabled ? `+${purgeGrams.toFixed(0)} g purga (+${extraMultiTime.toFixed(1)}h)` : '+0 g en torre/cacas';
+    }
+
+    const effectiveWeight = weight + purgeGrams;
+    const effectiveTime = time + extraMultiTime;
+
+    const costFilament = (20 / 1000) * effectiveWeight;
+    const costPower = effectiveTime * 0.25 * (parseFloat(state.electricityTariff) || 0.18);
+    const costWear = effectiveTime * 0.15;
+    const costLabor = effectiveTime * 0.5;
+
+    // Hardware & Finishing
+    const inserts = parseInt(document.getElementById('calc-hw-inserts')?.value) || 0;
+    const magnets = parseInt(document.getElementById('calc-hw-magnets')?.value) || 0;
+    const screws = parseInt(document.getElementById('calc-hw-screws')?.value) || 0;
+    const sanding = document.getElementById('calc-hw-sanding')?.checked ? 3.00 : 0;
+    const painting = document.getElementById('calc-hw-painting')?.checked ? 8.00 : 0;
+    const costHardware = (inserts * 0.25) + (magnets * 0.35) + (screws * 0.15) + sanding + painting;
+
+    // CAD / 3D design service
+    const cadEnabled = document.getElementById('calc-cad-enabled')?.checked || false;
+    const cadType = document.getElementById('calc-cad-type')?.value || 'mod';
+    const cadHours = parseFloat(document.getElementById('calc-cad-hours')?.value) || 1;
+    let costCad = 0;
+    if (cadEnabled) {
+        costCad = cadType === 'mod' ? 5.00 : (cadHours * 20.00);
+    }
+
+    const basePrintCost = (costFilament + costPower + costWear + costLabor) * riskFactor;
+    const totalCost = basePrintCost + costHardware + costCad;
     const profitNet = totalCost * (margin / 100);
-    const suggestedPrice = totalCost + profitNet;
-    
+    let suggestedPrice = totalCost + profitNet;
+
+    // Tarifa Mínima de Puesta en Marcha (5.00 €)
+    const minFee = parseFloat(state.minimumOrderFee) || 5.00;
+    const minBadge = document.getElementById('calc-min-fee-badge');
+    if ((weight > 0 || time > 0) && suggestedPrice < minFee) {
+        suggestedPrice = minFee;
+        if (minBadge) minBadge.style.display = 'block';
+    } else {
+        if (minBadge) minBadge.style.display = 'none';
+    }
+
+    // Consejo Nocturno para impresiones >= 6h
+    const nightTip = document.getElementById('calc-night-savings-tip');
+    const nightText = document.getElementById('calc-night-savings-text');
+    if (effectiveTime >= 6) {
+        const nightSavings = effectiveTime * 0.25 * 0.12;
+        if (nightText) {
+            nightText.innerHTML = `<strong>Ahorro Nocturno:</strong> Esta pieza dura ${effectiveTime.toFixed(1)}h. Imprimiendo de noche (00h-08h) ahorras aprox. <strong>${nightSavings.toFixed(2)} €</strong> en luz.`;
+        }
+        if (nightTip) nightTip.style.display = 'block';
+    } else {
+        if (nightTip) nightTip.style.display = 'none';
+    }
+
     const cFil = document.getElementById('calc-cost-filament');
     if (cFil) cFil.textContent = `${costFilament.toFixed(2)} €`;
     const cPow = document.getElementById('calc-cost-power');
@@ -2733,16 +2864,64 @@ function calculateQuote() {
     if (cWear) cWear.textContent = `${costWear.toFixed(2)} €`;
     const cLab = document.getElementById('calc-cost-labor');
     if (cLab) cLab.textContent = `${costLabor.toFixed(2)} €`;
-    
+
+    const rowHw = document.getElementById('calc-cost-hw-row');
+    const cHw = document.getElementById('calc-cost-hardware');
+    if (rowHw && cHw) {
+        if (costHardware > 0) {
+            rowHw.style.display = 'flex';
+            cHw.textContent = `${costHardware.toFixed(2)} €`;
+        } else {
+            rowHw.style.display = 'none';
+        }
+    }
+
+    const rowCad = document.getElementById('calc-cost-cad-row');
+    const cCad = document.getElementById('calc-cost-cad');
+    if (rowCad && cCad) {
+        if (costCad > 0) {
+            rowCad.style.display = 'flex';
+            cCad.textContent = `${costCad.toFixed(2)} €`;
+        } else {
+            rowCad.style.display = 'none';
+        }
+    }
+
     const cTot = document.getElementById('calc-cost-total');
     if (cTot) cTot.textContent = `${totalCost.toFixed(2)} €`;
     const pNet = document.getElementById('calc-profit-net');
     if (pNet) pNet.textContent = `${profitNet.toFixed(2)} €`;
     const sPrice = document.getElementById('calc-suggested-price');
     if (sPrice) sPrice.textContent = `${suggestedPrice.toFixed(2)} €`;
-    
+
     renderVolumeTiers();
 }
+
+window.toggleCalcSection = function(id) {
+    const el = document.getElementById(id);
+    const icon = document.getElementById('calc-hw-icon');
+    if (!el) return;
+    const isHidden = el.style.display === 'none';
+    el.style.display = isHidden ? 'block' : 'none';
+    if (icon) icon.className = isHidden ? 'fa-solid fa-chevron-up text-dim text-xs' : 'fa-solid fa-chevron-down text-dim text-xs';
+};
+
+window.toggleMulticolorOptions = function(enabled) {
+    const det = document.getElementById('calc-multicolor-details');
+    if (det) det.style.display = enabled ? 'block' : 'none';
+    calculateQuote();
+};
+
+window.toggleCadOptions = function(enabled) {
+    const det = document.getElementById('calc-cad-details');
+    if (det) det.style.display = enabled ? 'block' : 'none';
+    calculateQuote();
+};
+
+window.toggleCadHoursInput = function(val) {
+    const wrap = document.getElementById('calc-cad-hours-wrap');
+    if (wrap) wrap.style.display = val === 'custom' ? 'block' : 'none';
+};
 
 window.convertCalcToOrder = function() {
     const title = document.getElementById('calc-item-name')?.value || 'Pieza Calculada';
@@ -4479,19 +4658,47 @@ function sendWhatsAppStatusTemplate(type) {
     const phoneClean = (client?.phone || '').replace(/[^0-9]/g, '');
     let msg = '';
     
+    const price = parseFloat(o.price || 0);
+    const deposit = parseFloat(o.depositPaid || 0);
+    const pending = Math.max(0, price - deposit);
+
     if (type === 'started') {
         msg = `¡Hola ${o.client}! 🚀 Tu encargo de impresión 3D "${o.title}" ya ha empezado a fabricarse en nuestro taller. Te avisaremos en cuanto esté listo. ¡Un saludo de Print3D Studio!`;
     } else if (type === 'ready') {
-        msg = `¡Hola ${o.client}! ✅ Tu pieza 3D "${o.title}" ha finalizado la impresión y ha superado el control de calidad. Ya puedes pasar a recogerla por el taller. Total pendiente: ${parseFloat(o.price || 0).toFixed(2)} €. ¡Muchas gracias!`;
+        if (deposit >= price && price > 0) {
+            msg = `¡Hola ${o.client}! ✅ Tu pieza 3D "${o.title}" ha finalizado la impresión y ha superado el control de calidad. Ya puedes pasar a recogerla por el taller (está totalmente pagada al 100%). ¡Muchas gracias!`;
+        } else if (deposit > 0) {
+            msg = `¡Hola ${o.client}! ✅ Tu pieza 3D "${o.title}" ha finalizado la impresión y ha superado el control de calidad. Ya puedes pasar a recogerla por el taller. Total del pedido: ${price.toFixed(2)} € (ya abonada señal de ${deposit.toFixed(2)} € por ${o.paymentMethod || 'Bizum'}). Saldo restante a abonar: ${pending.toFixed(2)} €. ¡Muchas gracias!`;
+        } else {
+            msg = `¡Hola ${o.client}! ✅ Tu pieza 3D "${o.title}" ha finalizado la impresión y ha superado el control de calidad. Ya puedes pasar a recogerla por el taller. Total pendiente: ${price.toFixed(2)} €. ¡Muchas gracias!`;
+        }
     } else if (type === 'shipped') {
         msg = `¡Hola ${o.client}! 📦 Tu pedido "${o.title}" ya ha sido cuidadosamente embalado y entregado a la agencia de transporte. Te llegará en breve. ¡Esperamos que disfrutes tu pieza!`;
     } else if (type === 'update') {
         msg = `¡Hola ${o.client}! 🔍 Te dejamos una actualización de tu pieza "${o.title}": la impresión avanza según lo previsto con excelentes acabados. ¡Seguimos trabajando en ella!`;
+    } else if (type === 'care') {
+        const filament = state.filaments?.find(f => f.id === o.filamentId);
+        const mat = (filament?.material || 'PLA').toUpperCase();
+        const tempTip = mat.includes('PLA') 
+            ? 'Al estar fabricada en PLA, no la dejes dentro de un coche cerrado al sol en verano ni la metas al lavavajillas (>55ºC puede deformarse).'
+            : 'Material de alta durabilidad técnica apto para uso continuado.';
+            
+        msg = `¡Hola ${o.client}! 🛠️ *Guía de cuidados y garantía de tu pieza 3D ("${o.title}")*:\n\n` +
+              `1. ☀️ *Temperatura*: ${tempTip}\n` +
+              `2. 🧼 *Limpieza*: Lavar con agua tibia y jabón neutro suave. No utilices acetona ni disolventes agresivos.\n` +
+              `3. 🛡️ *Garantía de taller*: Tienes 30 días de garantía ante cualquier defecto de fabricación o fatiga prematura. Si surge cualquier problema, te la reimprimimos sin coste.\n\n` +
+              `¡Que la disfrutes! Un saludo de Print3D Studio 🚀`;
     }
     
     const url = phoneClean ? `https://wa.me/${phoneClean}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
     closeModal('modal-whatsapp-status');
+}
+
+function sendPieceCareInstructions(orderId) {
+    const idInput = document.getElementById('wa-status-order-id');
+    if (idInput) idInput.value = orderId;
+    sendWhatsAppStatusTemplate('care');
 }
 
 // FEATURE 12: Albarán de Entrega sin Precios
@@ -5696,5 +5903,84 @@ window.copyBatchQuoteWhatsApp = copyBatchQuoteWhatsApp;
 window.sendBatchQuoteWhatsApp = sendBatchQuoteWhatsApp;
 window.convertBatchToOrder = convertBatchToOrder;
 window.convertTierToOrder = convertTierToOrder;
+
+// --- CARTA DE COLORES Y MUESTRARIO EN STOCK PARA WHATSAPP ---
+function shareColorPaletteWhatsApp() {
+    const inStock = (state.filaments || []).filter(f => (f.currentWeight || 0) > 40);
+    if (inStock.length === 0) {
+        showToast('No hay filamentos con stock suficiente (>40g)', 'warning');
+        return;
+    }
+
+    let listText = '';
+    inStock.forEach(f => {
+        const mat = f.material || 'PLA';
+        const brand = f.brand || '';
+        const color = f.colorName || 'Color';
+        const grams = Math.round(f.currentWeight || 0);
+        listText += `• *${color}* (${mat} ${brand}) - _${grams}g disponibles_\n`;
+    });
+
+    const msg = `🎨 *CARTA DE COLORES Y MATERIALES EN TALLER* 🎨\n\n` +
+        `¡Hola! Aquí tienes los colores y materiales que tenemos listos en stock para imprimir tu encargo:\n\n` +
+        listText + `\n` +
+        `¿Qué color y acabado te gusta más para tu pieza? ✨\n` +
+        `_Print3D Studio_`;
+
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(msg).catch(() => {});
+    }
+    showToast('🎨 Carta de colores copiada y abriendo WhatsApp...', 'success');
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+// --- GUÍA DE MATERIALES PARA CLIENTES ---
+function openMaterialGuideModal() {
+    openModal('modal-material-guide');
+}
+
+function shareMaterialGuideWhatsApp() {
+    const msg = `📚 *GUÍA DE MATERIALES 3D PARA TU ENCARGO* 📚\n\n` +
+        `¡Hola! Te explicamos brevemente qué material te conviene según el uso de tu pieza:\n\n` +
+        `🔹 *PLA+ (Estético)*: El más definido y con más colores (seda, mármol). Ideal para figuras, maquetas y decoración de interior.\n` +
+        `⚠️ _Cuidado: No dejar en coches cerrados al sol (>55ºC)._\n\n` +
+        `🔹 *PETG (Resistente & Exterior)*: Muy tenaz a golpes, impermeable y resiste hasta 75ºC. Ideal para soportes de pared, baño y cocina.\n\n` +
+        `🔹 *TPU 95A (Goma Flexible)*: Irrompible y elástico. Ideal para fundas amortiguadoras, topes y juntas.\n\n` +
+        `🔹 *ASA / ABS (Automoción & Sol UV)*: Resiste intemperie total y más de 95ºC. Ideal para coche, moto y exterior.\n\n` +
+        `¿Tienes dudas sobre cuál elegir? ¡Dinos para qué usarás la pieza y te recomendamos el mejor! 🚀`;
+
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(msg).catch(() => {});
+    }
+    showToast('📚 Guía copiada y abriendo WhatsApp...', 'success');
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function copyMaterialGuideToClipboard() {
+    const msg = `📚 GUÍA DE MATERIALES 3D - PRINT3D STUDIO\n\n` +
+        `• PLA+: Máxima estética, figuras y piezas de interior.\n` +
+        `• PETG: Resistencia a golpes, agua y calor hasta 75ºC.\n` +
+        `• TPU: Goma flexible amortiguadora e indestructible.\n` +
+        `• ASA/ABS: Exterior, sol directo y alta temperatura (95ºC).`;
+
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(msg).then(() => {
+            showToast('📋 Guía de materiales copiada al portapapeles', 'success');
+        }).catch(() => {
+            showToast('📋 Guía copiada', 'success');
+        });
+    } else {
+        showToast('📋 Guía copiada', 'success');
+    }
+    playChime('success');
+}
+
+// Window bindings for all new features
+window.shareColorPaletteWhatsApp = shareColorPaletteWhatsApp;
+window.openMaterialGuideModal = openMaterialGuideModal;
+window.shareMaterialGuideWhatsApp = shareMaterialGuideWhatsApp;
+window.copyMaterialGuideToClipboard = copyMaterialGuideToClipboard;
+window.sendPieceCareInstructions = sendPieceCareInstructions;
+
 
 
