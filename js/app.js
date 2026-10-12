@@ -303,13 +303,18 @@ function shareCalcQuoteWhatsApp() {
     const weight = document.getElementById('calc-weight')?.value || 0;
     const time = document.getElementById('calc-time')?.value || 0;
     const price = document.getElementById('calc-suggested-price')?.textContent || '0.00 €';
+
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + 15);
+    const expiryFormatted = expiry.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
     
     const msg = `¡Hola! Aquí tienes el presupuesto para tu pieza 3D:\n\n` +
                 `📦 *Pieza:* ${itemName}\n` +
                 `⚖️ *Peso estimado:* ${weight} g\n` +
                 `⏱️ *Tiempo de impresión:* ~${time} horas\n` +
-                `💶 *Precio final:* ${price}\n\n` +
-                `¿Deseas que iniciemos la fabricación en el taller?`;
+                `💶 *Precio final:* ${price} (IVA incl.)\n` +
+                `📅 *Validez del presupuesto:* 15 días laborables (hasta el ${expiryFormatted}) sujeto a cola de taller.\n\n` +
+                `¿Deseas confirmarlo para que lo pongamos en cola de impresión en el taller? 🚀`;
                 
     const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
@@ -959,8 +964,20 @@ function openInvoiceModal(id) {
 function sendBudgetWhatsApp(id) {
     const o = state.orders.find(x => x.id === id);
     if (!o) return;
+    
+    const baseDate = o.date ? new Date(o.date) : new Date();
+    const expiry = new Date(baseDate.getTime() + 15 * 24 * 60 * 60 * 1000);
+    const expiryFormatted = expiry.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
     const text = encodeURIComponent(
-        `👋 ¡Hola ${o.client}!\n\nLe enviamos el presupuesto para su pieza 3D:\n📦 *Pieza:* ${o.title}\n⚖️ *Peso:* ${o.weight}g\n⏱️ *Tiempo estimado:* ${o.time}h\n💶 *Total:* ${parseFloat(o.price).toFixed(2)} € (IVA incl.)\n\n¿Desea que comencemos con la impresión?\n¡Muchas gracias!`
+        `👋 ¡Hola ${o.client}!\n\n` +
+        `Le enviamos el presupuesto formal para su encargo 3D:\n` +
+        `📦 *Pieza:* ${o.title}\n` +
+        `⚖️ *Peso:* ${o.weight}g\n` +
+        `⏱️ *Tiempo estimado:* ${o.time}h\n` +
+        `💶 *Total:* ${parseFloat(o.price).toFixed(2)} € (IVA incl.)\n` +
+        `📅 *Validez comercial:* 15 días laborables (hasta el ${expiryFormatted}) sujeto a disponibilidad de máquinas.\n\n` +
+        `¿Desea confirmarlo para comenzar con la impresión en el taller?\n¡Muchas gracias!`
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
 }
