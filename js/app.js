@@ -141,6 +141,14 @@ function loadState() {
                     { id: generateId(), name: 'Litofanía Curva Personalizada', category: 'Litofanías & Regalos', material: 'PLA+', price: 22.00, weight: 95, time: 6.0, icon: 'fa-solid fa-lightbulb', notes: '100% relleno blanco vertical' }
                 ];
             }
+            if (!state.gallery || state.gallery.length === 0) {
+                state.gallery = [
+                    { id: 'gal-1', title: 'Casco Mandalorian Beskar', category: 'Cosplay', material: 'PLA Silk Plata', printer: 'Bambu Lab X1-Carbon', specs: 'Capa 0.16mm • 3 paredes • 24h', photo: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=600&auto=format&fit=crop&q=80', date: '2026-09-15' },
+                    { id: 'gal-2', title: 'Soporte Motor Nema 17 Reforzado', category: 'Ingeniería', material: 'PETG Carbono Negro', printer: 'Prusa MK4', specs: '5 paredes • 40% giroide • 80ºC', photo: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80', date: '2026-09-20' },
+                    { id: 'gal-3', title: 'Lámpara Luna Litofanía 3D', category: 'Litofanía', material: 'PLA Blanco Frío', printer: 'Bambu Lab X1-Carbon', specs: '100% relleno • Capa 0.12mm • Base LED', photo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80', date: '2026-09-28' },
+                    { id: 'gal-4', title: 'Macetero Geométrico Origami', category: 'Hogar', material: 'PLA Terracota Mate', printer: 'Ender 3 V3', specs: 'Modo Vaso espiral 0.8mm estanco', photo: 'https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=600&auto=format&fit=crop&q=80', date: '2026-10-02' }
+                ];
+            }
         } catch (e) {
             console.error('Failed to parse state:', e);
         }
@@ -205,6 +213,13 @@ function seedDemoData(showEffects = true) {
         { id: generateId(), name: 'Boquilla Hardened Steel 0.4mm', category: 'Boquillas', qty: 4, minStock: 2 },
         { id: generateId(), name: 'Plancha PEI Texturizada Doble Cara', category: 'Camas PEI', qty: 2, minStock: 1 },
         { id: generateId(), name: 'Calentador Cerámico 24V 60W', category: 'Extrusores', qty: 1, minStock: 1 }
+    ];
+
+    state.gallery = [
+        { id: 'gal-1', title: 'Casco Mandalorian Beskar', category: 'Cosplay', material: 'PLA Silk Plata', printer: 'Bambu Lab X1-Carbon', specs: 'Capa 0.16mm • 3 paredes • 24h', photo: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=600&auto=format&fit=crop&q=80', date: '2026-09-15' },
+        { id: 'gal-2', title: 'Soporte Motor Nema 17 Reforzado', category: 'Ingeniería', material: 'PETG Carbono Negro', printer: 'Prusa MK4', specs: '5 paredes • 40% giroide • 80ºC', photo: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80', date: '2026-09-20' },
+        { id: 'gal-3', title: 'Lámpara Luna Litofanía 3D', category: 'Litofanía', material: 'PLA Blanco Frío', printer: 'Bambu Lab X1-Carbon', specs: '100% relleno • Capa 0.12mm • Base LED', photo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80', date: '2026-09-28' },
+        { id: 'gal-4', title: 'Macetero Geométrico Origami', category: 'Hogar', material: 'PLA Terracota Mate', printer: 'Ender 3 V3', specs: 'Modo Vaso espiral 0.8mm estanco', photo: 'https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=600&auto=format&fit=crop&q=80', date: '2026-10-02' }
     ];
 
     saveState();
@@ -513,6 +528,7 @@ function switchTab(tabId) {
             'tab-schedule': '<i class="fa-solid fa-calendar-days text-cyan"></i> Agenda General y Fechas Límite',
             'tab-maintenance': '<i class="fa-solid fa-screwdriver-wrench text-amber"></i> Mantenimiento & Repuestos',
             'tab-advisor': '<i class="fa-solid fa-wand-magic-sparkles text-emerald"></i> Asistente de Selección de Materiales',
+            'tab-gallery': '<i class="fa-solid fa-camera-retro text-cyan"></i> Showroom & Galería de Trabajos',
             'tab-analytics': '<i class="fa-solid fa-chart-line text-cyan"></i> Métricas y Rentabilidad del Taller'
         };
         const pageTitle = document.getElementById('page-title');
@@ -527,6 +543,7 @@ function switchTab(tabId) {
         if (tabId === 'tab-filaments') { renderFilaments(); }
         if (tabId === 'tab-printers') { renderPrinters(); }
         if (tabId === 'tab-catalog') { renderCatalog(); }
+        if (tabId === 'tab-gallery') { renderGallery(); }
         if (tabId === 'tab-crm') { renderCRM(); }
         if (tabId === 'tab-expenses') { renderExpenses(); }
         
@@ -541,6 +558,7 @@ function renderAll() {
     renderDashboard();
     renderOrders();
     renderCatalog();
+    renderGallery();
     renderCRM();
     renderFilaments();
     renderPrinters();
@@ -749,6 +767,28 @@ function renderOrdersKanban() {
                     <span><i class="fa-solid fa-clock text-cyan"></i> ${o.time || 0}h</span>
                     ${o.deadline ? `<span>•</span><span class="text-xs text-secondary"><i class="fa-solid fa-calendar"></i> ${o.deadline}</span>` : ''}
                 </div>
+
+                ${(() => {
+                    if (o.deadline && o.status !== 'Entregado') {
+                        const deadlineDate = new Date(o.deadline + (o.deadline.length === 10 ? 'T23:59:59' : ''));
+                        const now = new Date();
+                        const diffMs = deadlineDate.getTime() - now.getTime();
+                        const hoursRemaining = Math.round(diffMs / (1000 * 60 * 60));
+                        const printHours = parseFloat(o.time || 0);
+
+                        if (diffMs < 0) {
+                            return `<div class="mb-1"><span class="badge bg-danger" style="font-size:9.5px; animation: pulse 1.5s infinite;"><i class="fa-solid fa-circle-exclamation mr-1"></i> ¡PLAZO VENCIDO! (${Math.abs(hoursRemaining)}h vencido)</span></div>`;
+                        } else if (hoursRemaining < printHours) {
+                            return `<div class="mb-1"><span class="badge bg-danger" style="font-size:9.5px; animation: pulse 1.5s infinite; border:1px solid #ff4d4f;"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ¡IMPOSIBLE ENTREGAR A TIEMPO! (Quedan ${hoursRemaining}h y requiere ${printHours}h)</span></div>`;
+                        } else if (hoursRemaining <= 24) {
+                            return `<div class="mb-1"><span class="badge" style="background:#ea580c; color:#fff; font-size:9.5px;"><i class="fa-solid fa-stopwatch mr-1"></i> Cuenta atrás: ${hoursRemaining}h restantes</span></div>`;
+                        } else {
+                            const daysLeft = Math.ceil(hoursRemaining / 24);
+                            return `<div class="mb-1"><span class="badge" style="background:rgba(59,130,246,0.15); color:#60a5fa; font-size:9.5px;"><i class="fa-solid fa-hourglass-half mr-1"></i> Quedan ${daysLeft}d (${hoursRemaining}h)</span></div>`;
+                        }
+                    }
+                    return '';
+                })()}
 
                 ${o.isRma ? `<div class="mb-1"><span class="badge bg-danger" style="font-size:10px;"><i class="fa-solid fa-rotate-left mr-1"></i> Garantía / RMA (0 €)</span></div>` : ''}
                 ${(() => {
@@ -2856,7 +2896,24 @@ function calculateQuote() {
         purgeInfo.textContent = multiEnabled ? `+${purgeGrams.toFixed(0)} g purga (+${extraMultiTime.toFixed(1)}h)` : '+0 g en torre/cacas';
     }
 
-    const effectiveWeight = weight + purgeGrams;
+    // Estimador de Soportes
+    const supportsType = document.getElementById('calc-supports-type')?.value || 'none';
+    let supportGrams = 0;
+    if (weight > 0) {
+        if (supportsType === 'tree') supportGrams = weight * 0.18;
+        else if (supportsType === 'dense') supportGrams = weight * 0.45;
+    }
+    const supportsInfo = document.getElementById('calc-supports-info');
+    if (supportsInfo) {
+        if (supportGrams > 0) {
+            supportsInfo.style.display = 'block';
+            supportsInfo.innerHTML = `<i class="fa-solid fa-tree mr-1"></i> +${supportGrams.toFixed(1)} g de material en soportes (${supportsType === 'tree' ? '+18% árbol' : '+45% denso'})`;
+        } else {
+            supportsInfo.style.display = 'none';
+        }
+    }
+
+    const effectiveWeight = weight + purgeGrams + supportGrams;
     const effectiveTime = time + extraMultiTime;
 
     const costFilament = (20 / 1000) * effectiveWeight;
@@ -4508,9 +4565,10 @@ function calculateBatchQuote() {
     const totalProductionCost = parseFloat((totalWeightKg * costPerKg + totalHours * (0.25 * kwhCost + machineWear)).toFixed(2));
     const netProfit = Math.max(0, parseFloat((totalPrice - totalProductionCost).toFixed(2)));
 
-    // Days needed with workshop fleet (approx 10h/day per printer)
-    const printersCount = Math.max(1, state.printers.length);
-    const daysNeeded = Math.max(1, Math.ceil(totalHours / (printersCount * 10)));
+    // Production multi-machine in parallel
+    const parallelCount = parseInt(document.getElementById('batch-parallel-printers')?.value, 10) || 1;
+    const parallelHours = parseFloat((totalHours / parallelCount).toFixed(1));
+    const daysNeeded = Math.max(1, Math.ceil(parallelHours / 10));
 
     currentBatchQuoteData = {
         name: itemName,
@@ -4521,6 +4579,8 @@ function calculateBatchQuote() {
         totalPrice,
         totalWeightKg,
         totalHours,
+        parallelHours,
+        parallelCount,
         totalProductionCost,
         netProfit,
         daysNeeded
@@ -4534,7 +4594,7 @@ function calculateBatchQuote() {
     const totalPricEl = document.getElementById('batch-total-price');
 
     if (filEl) filEl.textContent = `${totalWeightKg} kg`;
-    if (hoursEl) hoursEl.textContent = `${totalHours} h`;
+    if (hoursEl) hoursEl.textContent = parallelCount > 1 ? `${totalHours}h (~${parallelHours}h / ${parallelCount} máq.)` : `${totalHours} h`;
     if (costEl) costEl.textContent = `${totalProductionCost.toFixed(2)} €`;
     if (profitEl) profitEl.textContent = `+${netProfit.toFixed(2)} €`;
     if (unitFinalEl) unitFinalEl.innerHTML = `${unitFinalPrice.toFixed(2)} €/ud <span class="badge bg-cyan text-xs ml-1" id="batch-discount-badge">-${discountPct}%</span>`;
@@ -4548,7 +4608,7 @@ function calculateBatchQuote() {
                 `📦 *Cantidad:* ${qty} unidades\n` +
                 `🏷️ *Precio unitario:* ${unitFinalPrice.toFixed(2)} €/ud (Descuento de lote aplicado: -${discountPct}%)\n` +
                 `💰 *TOTAL DEL LOTE:* ${totalPrice.toFixed(2)} € (IVA incl.)\n` +
-                `⏱️ *Plazo de fabricación estimado:* ~${daysNeeded} días laborables\n\n` +
+                `⏱️ *Plazo de fabricación estimado:* ~${daysNeeded} días laborables${parallelCount > 1 ? ` (repartido en ${parallelCount} impresoras en paralelo para máxima rapidez)` : ''}\n\n` +
                 `📅 *Validez del presupuesto:* 15 días laborables (hasta el ${expiryFormatted}) sujeto a cola de taller.\n\n` +
                 `¿Deseas confirmarlo para reservar bobinas y programar las impresoras? 🚀`;
 
@@ -6177,6 +6237,396 @@ window.calculateNozzleImpact = calculateNozzleImpact;
 window.applyStrengthPreset = applyStrengthPreset;
 window.openMaintenanceCheckModal = openMaintenanceCheckModal;
 window.saveMaintenanceLog = saveMaintenanceLog;
+
+// ==========================================================================
+// FEATURE: Calculadora de Reescalado 3D (Regla del Cubo)
+// ==========================================================================
+let currentRescaleCalculated = { newWeight: 0, newTime: 0, scaleFactor: 1.0 };
+
+function openRescaleModal() {
+    const origWeight = parseFloat(document.getElementById('calc-weight')?.value) || 100;
+    const origTime = parseFloat(document.getElementById('calc-time')?.value) || 4.0;
+
+    const wInp = document.getElementById('rescale-orig-weight');
+    const tInp = document.getElementById('rescale-orig-time');
+    if (wInp) wInp.value = origWeight > 0 ? origWeight : 100;
+    if (tInp) tInp.value = origTime > 0 ? origTime : 4.0;
+
+    calculateRescale();
+    openModal('modal-rescale-calculator');
+}
+
+function toggleRescaleInputs() {
+    const mode = document.getElementById('rescale-mode')?.value || 'percent';
+    const percentWrap = document.getElementById('rescale-percent-wrap');
+    const origSizeWrap = document.getElementById('rescale-orig-size-wrap');
+    const newSizeWrap = document.getElementById('rescale-new-size-wrap');
+
+    if (mode === 'percent') {
+        if (percentWrap) percentWrap.style.display = 'block';
+        if (origSizeWrap) origSizeWrap.style.display = 'none';
+        if (newSizeWrap) newSizeWrap.style.display = 'none';
+    } else {
+        if (percentWrap) percentWrap.style.display = 'none';
+        if (origSizeWrap) origSizeWrap.style.display = 'block';
+        if (newSizeWrap) newSizeWrap.style.display = 'block';
+    }
+    calculateRescale();
+}
+
+function calculateRescale() {
+    const mode = document.getElementById('rescale-mode')?.value || 'percent';
+    const origWeight = parseFloat(document.getElementById('rescale-orig-weight')?.value) || 0;
+    const origTime = parseFloat(document.getElementById('rescale-orig-time')?.value) || 0;
+
+    let scaleFactor = 1.0;
+    if (mode === 'percent') {
+        const percent = parseFloat(document.getElementById('rescale-percent')?.value) || 100;
+        scaleFactor = Math.max(0.05, percent / 100);
+    } else {
+        const origSize = parseFloat(document.getElementById('rescale-orig-size')?.value) || 100;
+        const newSize = parseFloat(document.getElementById('rescale-new-size')?.value) || 100;
+        scaleFactor = origSize > 0 ? Math.max(0.05, newSize / origSize) : 1.0;
+    }
+
+    // Regla del Cubo 3D:
+    // Volumen & Peso = S³
+    // Tiempo = S^2.5 (capas + perímetros + relleno)
+    const weightMultiplier = Math.pow(scaleFactor, 3);
+    const timeMultiplier = Math.pow(scaleFactor, 2.5);
+
+    const newWeight = Math.round(origWeight * weightMultiplier);
+    const newTime = parseFloat((origTime * timeMultiplier).toFixed(1));
+
+    currentRescaleCalculated = { newWeight, newTime, scaleFactor };
+
+    const factorEl = document.getElementById('rescale-factor-val');
+    const wEl = document.getElementById('rescale-new-weight');
+    const tEl = document.getElementById('rescale-new-time');
+    const wDeltaEl = document.getElementById('rescale-weight-delta');
+    const tDeltaEl = document.getElementById('rescale-time-delta');
+
+    if (factorEl) factorEl.textContent = `${scaleFactor.toFixed(2)}x (${Math.round(scaleFactor * 100)}%)`;
+    if (wEl) wEl.textContent = `${newWeight} g`;
+    if (tEl) tEl.textContent = `${newTime} h`;
+
+    const weightDeltaPct = Math.round((weightMultiplier - 1) * 100);
+    const timeDeltaPct = Math.round((timeMultiplier - 1) * 100);
+
+    if (wDeltaEl) {
+        wDeltaEl.textContent = weightDeltaPct >= 0 ? `+${weightDeltaPct}% de filamento` : `${weightDeltaPct}% de filamento`;
+        wDeltaEl.className = weightDeltaPct >= 0 ? 'text-xs text-danger' : 'text-xs text-emerald';
+    }
+    if (tDeltaEl) {
+        tDeltaEl.textContent = timeDeltaPct >= 0 ? `+${timeDeltaPct}% de máquina` : `${timeDeltaPct}% de máquina`;
+        tDeltaEl.className = timeDeltaPct >= 0 ? 'text-xs text-purple' : 'text-xs text-emerald';
+    }
+}
+
+function applyRescaleToCalculator() {
+    if (!currentRescaleCalculated || currentRescaleCalculated.newWeight <= 0) {
+        showToast('Calcula primero las dimensiones deseadas', 'warning');
+        return;
+    }
+
+    const calcW = document.getElementById('calc-weight');
+    const calcT = document.getElementById('calc-time');
+    if (calcW) calcW.value = currentRescaleCalculated.newWeight;
+    if (calcT) calcT.value = currentRescaleCalculated.newTime;
+
+    calculateQuote();
+    closeModal('modal-rescale-calculator');
+    showToast(`✅ Valores aplicados: ${currentRescaleCalculated.newWeight}g y ${currentRescaleCalculated.newTime}h`, 'success');
+}
+
+// ==========================================================================
+// FEATURE: Showroom & Galería de Trabajos Reales
+// ==========================================================================
+let currentGalleryFilter = 'ALL';
+let tempGalleryPhotoData = '';
+
+function renderGallery(filterCategory = currentGalleryFilter) {
+    currentGalleryFilter = filterCategory;
+    const grid = document.getElementById('gallery-grid');
+    if (!grid) return;
+
+    if (!state.gallery) state.gallery = [];
+
+    const items = state.gallery.filter(item => {
+        return filterCategory === 'ALL' || item.category === filterCategory;
+    });
+
+    if (items.length === 0) {
+        grid.innerHTML = `
+            <div class="p-4 text-center text-muted" style="grid-column: 1 / -1; background: rgba(255,255,255,0.02); border-radius: 8px;">
+                <i class="fa-solid fa-camera-retro fa-2x mb-2 text-dim"></i>
+                <p class="text-sm">No hay trabajos en esta categoría.</p>
+                <button class="btn-outline btn-xs mt-2" onclick="openAddGalleryPhotoModal()"><i class="fa-solid fa-plus mr-1"></i> Añadir Primera Foto</button>
+            </div>
+        `;
+        return;
+    }
+
+    grid.innerHTML = items.map(item => `
+        <div class="panel p-0 overflow-hidden" style="display:flex; flex-direction:column; border:1px solid rgba(255,255,255,0.08); background:var(--bg-card);">
+            <div style="height: 180px; width: 100%; position: relative; background: #000; overflow: hidden;">
+                <img src="${escapeHtml(item.photo)}" alt="${escapeHtml(item.title)}" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s;" onerror="this.src='https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80'">
+                <span class="badge" style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); font-size: 11px;">
+                    ${escapeHtml(item.category)}
+                </span>
+            </div>
+            <div class="p-3" style="display:flex; flex-direction:column; flex:1; justify-content:space-between;">
+                <div>
+                    <h4 class="font-bold text-sm mb-1 text-white">${escapeHtml(item.title)}</h4>
+                    <div class="text-xs text-muted mb-2">
+                        <span class="text-cyan"><i class="fa-solid fa-spool mr-1"></i> ${escapeHtml(item.material || 'PLA')}</span>
+                        ${item.printer ? `<span class="ml-2 text-dim">• ${escapeHtml(item.printer)}</span>` : ''}
+                    </div>
+                    ${item.specs ? `<p class="text-xs text-dim mb-3" style="line-height:1.4;">${escapeHtml(item.specs)}</p>` : ''}
+                </div>
+                <div class="d-flex justify-content-between align-items-center pt-2 border-top border-secondary">
+                    <button class="btn-success btn-xs" onclick="sendGalleryPhotoWhatsApp('${item.id}')" title="Enviar muestra por WhatsApp">
+                        <i class="fa-brands fa-whatsapp mr-1"></i> Enviar Muestra
+                    </button>
+                    <button class="btn-outline btn-xs text-danger border-0" onclick="deleteGalleryPhoto('${item.id}')" title="Eliminar de la galería">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function filterGalleryCategory(cat, btn) {
+    const pills = document.querySelectorAll('#gallery-category-filters button');
+    pills.forEach(p => p.classList.remove('active-pill'));
+    if (btn) btn.classList.add('active-pill');
+    renderGallery(cat);
+}
+
+function openAddGalleryPhotoModal() {
+    tempGalleryPhotoData = '';
+    const form = document.getElementById('form-add-gallery');
+    if (form) form.reset();
+    const prevWrap = document.getElementById('gal-photo-preview-wrap');
+    if (prevWrap) prevWrap.style.display = 'none';
+    openModal('modal-add-gallery');
+}
+
+function previewGalleryInputPhoto(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            tempGalleryPhotoData = e.target.result;
+            const prev = document.getElementById('gal-photo-preview');
+            const wrap = document.getElementById('gal-photo-preview-wrap');
+            if (prev) prev.src = tempGalleryPhotoData;
+            if (wrap) wrap.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function previewGalleryUrl(url) {
+    if (url && url.startsWith('http')) {
+        tempGalleryPhotoData = url;
+        const prev = document.getElementById('gal-photo-preview');
+        const wrap = document.getElementById('gal-photo-preview-wrap');
+        if (prev) prev.src = url;
+        if (wrap) wrap.style.display = 'block';
+    }
+}
+
+function saveGalleryPhoto() {
+    const title = document.getElementById('gal-item-title')?.value?.trim();
+    const category = document.getElementById('gal-item-category')?.value || 'Otros';
+    const material = document.getElementById('gal-item-material')?.value?.trim() || 'PLA';
+    const printer = document.getElementById('gal-item-printer')?.value?.trim() || '';
+    const specs = document.getElementById('gal-item-specs')?.value?.trim() || '';
+    const photoUrl = tempGalleryPhotoData || document.getElementById('gal-item-url')?.value?.trim() || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80';
+
+    if (!title) {
+        showToast('Escribe el título de la pieza', 'warning');
+        return;
+    }
+
+    if (!state.gallery) state.gallery = [];
+
+    const newPhoto = {
+        id: generateId(),
+        title,
+        category,
+        material,
+        printer,
+        specs,
+        photo: photoUrl,
+        date: new Date().toISOString()
+    };
+
+    state.gallery.unshift(newPhoto);
+    saveState();
+    renderGallery();
+    closeModal('modal-add-gallery');
+    showToast('📸 Foto añadida a tu Showroom', 'success');
+}
+
+function deleteGalleryPhoto(id) {
+    if (!confirm('¿Eliminar esta foto del Showroom?')) return;
+    state.gallery = (state.gallery || []).filter(x => x.id !== id);
+    saveState();
+    renderGallery();
+    showToast('Foto retirada del Showroom', 'info');
+}
+
+function sendGalleryPhotoWhatsApp(id) {
+    const item = (state.gallery || []).find(x => x.id === id);
+    if (!item) return;
+
+    const msg = `¡Hola! 👋 Mira este ejemplo de trabajo real que fabricamos en nuestro taller:\n\n` +
+                `✨ *"${item.title}"*\n` +
+                `📂 *Categoría:* ${item.category}\n` +
+                `🧵 *Material:* ${item.material}\n` +
+                `${item.specs ? `⚙️ *Acabado:* ${item.specs}\n` : ''}` +
+                `${item.photo && item.photo.startsWith('http') ? `📸 *Foto del resultado:* ${item.photo}\n\n` : '\n'}` +
+                `¿Te gustaría un acabado o material similar para tu encargo? 🚀`;
+
+    const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+}
+
+// ==========================================================================
+// FEATURE: Calculador de Retales & Sobrantes de Bobina
+// ==========================================================================
+function openSpoolRemnantsModal(filamentId = null) {
+    const picker = document.getElementById('remnant-spool-picker');
+    if (picker) {
+        picker.innerHTML = '<option value="">-- Introducir gramos manualmente --</option>' + 
+            state.filaments.map(f => {
+                const rem = Math.max(0, Math.round(f.currentWeight || 0));
+                return `<option value="${f.id}" data-grams="${rem}">${escapeHtml(f.brand)} ${escapeHtml(f.material)} (${escapeHtml(f.colorName)}) — ${rem}g restantes</option>`;
+            }).join('');
+
+        if (filamentId) {
+            picker.value = filamentId;
+            const opt = picker.querySelector(`option[value="${filamentId}"]`);
+            if (opt && opt.dataset.grams) {
+                const gramsInput = document.getElementById('remnant-spool-grams');
+                if (gramsInput) gramsInput.value = opt.dataset.grams;
+            }
+        }
+    }
+
+    calculateSpoolRemnants();
+    openModal('modal-spool-remnants');
+}
+
+function onRemnantSpoolSelect(filamentId) {
+    if (!filamentId) return;
+    const f = state.filaments.find(x => x.id === filamentId);
+    if (f) {
+        const gramsInput = document.getElementById('remnant-spool-grams');
+        if (gramsInput) gramsInput.value = Math.max(0, Math.round(f.currentWeight || 0));
+        calculateSpoolRemnants();
+    }
+}
+
+function calculateSpoolRemnants() {
+    const grams = parseFloat(document.getElementById('remnant-spool-grams')?.value) || 0;
+    const container = document.getElementById('remnants-results-grid');
+    if (!container) return;
+
+    if (grams <= 0) {
+        container.innerHTML = '<div class="text-xs text-muted p-2">Indica una cantidad de gramos sobrantes para ver sugerencias.</div>';
+        return;
+    }
+
+    // Default micro catalog if catalog has few items
+    const candidates = (state.catalog && state.catalog.length > 0) ? state.catalog : [
+        { name: 'Llavero Logotipo Personalizado', weight: 12, price: 3.50, time: 0.5, icon: 'fa-solid fa-key' },
+        { name: 'Clip Cierra-Bolsas / Pinza', weight: 18, price: 2.50, time: 0.6, icon: 'fa-solid fa-paperclip' },
+        { name: 'Soporte Móvil de Bolsillo', weight: 28, price: 5.00, time: 1.0, icon: 'fa-solid fa-mobile-screen' },
+        { name: 'Rascador PEI para Cama 3D', weight: 35, price: 4.50, time: 1.2, icon: 'fa-solid fa-wrench' }
+    ];
+
+    const matching = candidates
+        .filter(c => (c.weight || 0) <= grams)
+        .map(c => {
+            const units = Math.floor(grams / c.weight);
+            const waste = grams - (units * c.weight);
+            const totalEarn = units * (c.price || 5.00);
+            return { ...c, units, waste, totalEarn };
+        })
+        .sort((a, b) => b.totalEarn - a.totalEarn);
+
+    if (matching.length === 0) {
+        container.innerHTML = `
+            <div class="p-3 rounded bg-dark border border-secondary text-xs text-center text-muted">
+                <i class="fa-solid fa-info-circle text-amber mr-1"></i> Tienes ${grams}g. Todos los modelos del catálogo pesan más. Puedes imprimir muestras de color o fichas de filamento (5-8g).
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = matching.map(m => `
+        <div class="p-2 rounded bg-dark border border-secondary d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <strong class="text-white text-xs d-block"><i class="${m.icon || 'fa-solid fa-cube'} text-amber mr-1"></i> ${escapeHtml(m.name)}</strong>
+                <span class="text-xs text-muted">${m.weight}g / ud • Puedes hacer <strong class="text-emerald">${m.units} ud${m.units > 1 ? 'es' : ''}</strong> (Sobran ${m.waste}g)</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-xs font-mono text-emerald fw-bold">+${m.totalEarn.toFixed(2)} €</span>
+                <button class="btn-primary btn-xs" onclick="createOrderFromRemnant('${escapeHtml(m.name)}', ${m.units}, ${m.weight}, ${m.totalEarn})">
+                    <i class="fa-solid fa-plus mr-1"></i> Crear Lote
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function createOrderFromRemnant(name, units, unitWeight, totalPrice) {
+    const filId = document.getElementById('remnant-spool-picker')?.value || (state.filaments[0]?.id || '');
+    const fil = state.filaments.find(f => f.id === filId);
+
+    const newOrder = {
+        id: generateId(),
+        title: `${units}x ${name} (Liquidación Retal ${fil ? fil.colorName : ''})`,
+        client: 'Stock Tienda / Mercadillo',
+        filamentId: filId,
+        printerId: state.printers[0]?.id || '',
+        weight: units * unitWeight,
+        time: parseFloat(((units * 0.8)).toFixed(1)),
+        price: totalPrice,
+        status: 'En Cola',
+        date: new Date().toISOString(),
+        changelog: [{ date: new Date().toISOString(), from: 'Creación', to: 'En Cola', note: 'Creado para aprovechar bobina casi vacía' }]
+    };
+
+    state.orders.unshift(newOrder);
+    saveState();
+    renderOrders();
+    closeModal('modal-spool-remnants');
+    showToast(`✅ Encargo añadido para aprovechar ${units * unitWeight}g de retal`, 'success');
+}
+
+// Window bindings for 6 new features
+window.openRescaleModal = openRescaleModal;
+window.toggleRescaleInputs = toggleRescaleInputs;
+window.calculateRescale = calculateRescale;
+window.applyRescaleToCalculator = applyRescaleToCalculator;
+
+window.renderGallery = renderGallery;
+window.filterGalleryCategory = filterGalleryCategory;
+window.openAddGalleryPhotoModal = openAddGalleryPhotoModal;
+window.previewGalleryInputPhoto = previewGalleryInputPhoto;
+window.previewGalleryUrl = previewGalleryUrl;
+window.saveGalleryPhoto = saveGalleryPhoto;
+window.deleteGalleryPhoto = deleteGalleryPhoto;
+window.sendGalleryPhotoWhatsApp = sendGalleryPhotoWhatsApp;
+
+window.openSpoolRemnantsModal = openSpoolRemnantsModal;
+window.onRemnantSpoolSelect = onRemnantSpoolSelect;
+window.calculateSpoolRemnants = calculateSpoolRemnants;
+window.createOrderFromRemnant = createOrderFromRemnant;
 
 
 

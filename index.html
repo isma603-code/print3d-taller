@@ -67,6 +67,9 @@
         <a href="#" class="nav-item" data-tab="tab-catalog">
           <i class="fa-solid fa-box-open text-primary"></i> Catálogo 3D
         </a>
+        <a href="#" class="nav-item" data-tab="tab-gallery">
+          <i class="fa-solid fa-camera-retro text-cyan"></i> Showroom & Galería
+        </a>
 
         <!-- Bloque de Finanzas y Rentabilidad (Siempre accesible) -->
         <div class="nav-section-title"><i class="fa-solid fa-coins text-amber mr-1"></i> FINANZAS & MÁQUINAS</div>
@@ -528,6 +531,36 @@
           </div>
         </section>
 
+        <!-- Section: Gallery / Showroom -->
+        <section id="tab-gallery" class="content-section" style="display: none;">
+          <div class="panel">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <div class="panel-title text-cyan"><i class="fa-solid fa-camera-retro mr-1"></i> Showroom & Galería de Trabajos Reales</div>
+                <div class="text-sm text-gray mt-1">Muestra tus acabados reales a clientes y envíales fotos por WhatsApp en 1 clic para cerrar ventas.</div>
+              </div>
+              <div class="d-flex gap-2">
+                <button class="btn-primary btn-sm" onclick="openAddGalleryPhotoModal()"><i class="fa-solid fa-plus"></i> Añadir Foto al Showroom</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <!-- Filtros por categoría -->
+              <div class="d-flex gap-2 mb-4 flex-wrap" id="gallery-category-filters">
+                <button class="btn-outline btn-xs active-pill" onclick="filterGalleryCategory('ALL', this)"><i class="fa-solid fa-border-all mr-1"></i> Todo</button>
+                <button class="btn-outline btn-xs" onclick="filterGalleryCategory('Cosplay', this)"><i class="fa-solid fa-mask mr-1"></i> Cosplay & Figuras</button>
+                <button class="btn-outline btn-xs" onclick="filterGalleryCategory('Ingeniería', this)"><i class="fa-solid fa-gears mr-1"></i> Prototipos & Mecánica</button>
+                <button class="btn-outline btn-xs" onclick="filterGalleryCategory('Hogar', this)"><i class="fa-solid fa-house mr-1"></i> Hogar & Deco</button>
+                <button class="btn-outline btn-xs" onclick="filterGalleryCategory('Litofanía', this)"><i class="fa-solid fa-image mr-1"></i> Litofanías & Regalos</button>
+              </div>
+
+              <!-- Grid de Fotos del Showroom -->
+              <div class="grid-3" id="gallery-grid">
+                <!-- Inyectado dinámicamente -->
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- Section 4: CRM -->
         <section id="tab-crm" class="content-section" style="display: none;">
           <div class="panel">
@@ -553,6 +586,7 @@
               <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                 <input type="text" id="filter-filament-search" class="form-control" placeholder="Buscar material o color...">
                 <button class="btn-outline btn-sm text-emerald" onclick="shareColorPaletteWhatsApp()" title="Enviar muestrario de colores en stock al cliente por WhatsApp"><i class="fa-brands fa-whatsapp"></i> Carta de Colores</button>
+                <button class="btn-outline btn-sm text-amber" onclick="openSpoolRemnantsModal()" title="Aprovechar bobinas casi vacías recomendando piezas ideales"><i class="fa-solid fa-recycle"></i> Retales & Sobrantes</button>
                 <button class="btn-outline btn-sm text-cyan" onclick="openMaterialGuideModal()" title="Abrir y enviar comparativa de materiales para clientes"><i class="fa-solid fa-book-open"></i> Guía Materiales</button>
                 <button class="btn-outline btn-sm" onclick="openFilamentComparator()"><i class="fa-solid fa-scale-balanced"></i> Comparar</button>
                 <button class="btn-primary btn-sm" onclick="openModal('modal-filament')"><i class="fa-solid fa-plus"></i> Nueva Bobina</button>
@@ -748,7 +782,12 @@
                     <input type="range" class="form-range w-100" min="0" max="100" value="100" id="calc-layer-slider">
                   </div>
 
-                  <div class="grid-3 mt-3">
+                  <div class="d-flex justify-content-between align-items-center mt-3 mb-1">
+                    <span class="text-xs text-muted fw-bold">Parámetros de la Pieza:</span>
+                    <button type="button" class="btn-outline btn-xs text-cyan" onclick="openRescaleModal()" title="Calcula el nuevo peso y tiempo al cambiar escala"><i class="fa-solid fa-arrows-up-down-left-right mr-1"></i> Reescalar Pieza (Regla del Cubo 3D)</button>
+                  </div>
+
+                  <div class="grid-3 mt-1">
                     <div class="form-group">
                       <label class="form-label">Nombre Pieza</label>
                       <input type="text" id="calc-item-name" class="form-control" placeholder="Ej. Engranaje">
@@ -772,6 +811,17 @@
                       <option value="1.30">Alta / Riesgo despegue (+30%)</option>
                     </select>
                   </div>
+
+                  <!-- Estimador de Filamento en Soportes -->
+                  <div class="mt-2 p-2 rounded bg-dark border border-secondary d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <span class="text-xs text-muted"><i class="fa-solid fa-tree text-emerald mr-1"></i> Filamento en Soportes:</span>
+                    <select id="calc-supports-type" class="form-select text-xs w-auto py-1" onchange="calculateQuote()">
+                      <option value="none" selected>Sin soportes (0% desecho)</option>
+                      <option value="tree">Soportes en Árbol (+18% material)</option>
+                      <option value="dense">Soportes Densos/Parrilla (+45% material)</option>
+                    </select>
+                  </div>
+                  <div id="calc-supports-info" class="text-xs px-2 py-1" style="display: none; color: #10b981;"></div>
 
                   <!-- Simulador de Boquillas / Nozzle -->
                   <div class="mt-2 p-2 rounded bg-dark border border-secondary d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -2763,6 +2813,17 @@
           </div>
         </div>
 
+        <!-- Reparto de Producción Multi-Máquina en Paralelo -->
+        <div class="mt-2 p-2 rounded bg-dark border border-secondary d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+          <span class="text-xs text-muted"><i class="fa-solid fa-network-wired text-cyan mr-1"></i> Producción Multi-Máquina en Paralelo:</span>
+          <select id="batch-parallel-printers" class="form-select text-xs w-auto py-1" onchange="calculateBatchQuote()">
+            <option value="1" selected>1 Impresora (Secuencial estándar)</option>
+            <option value="2">2 Impresoras en Paralelo (x2 velocidad)</option>
+            <option value="3">3 Impresoras en Paralelo (x3 velocidad)</option>
+            <option value="4">4 Impresoras en Paralelo (x4 velocidad)</option>
+          </select>
+        </div>
+
         <!-- Métricas del Lote -->
         <div class="grid-4 mb-3 text-center" style="gap: 8px;">
           <div class="p-2 rounded bg-dark border border-secondary">
@@ -2965,6 +3026,176 @@
       <div class="modal-footer">
         <button class="btn-outline" onclick="closeModal('modal-printer-maintenance')">Cancelar</button>
         <button class="btn-primary" onclick="saveMaintenanceLog()"><i class="fa-solid fa-check"></i> Registrar y Poner al Día</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 21: Calculadora de Reescalado 3D (Regla del Cubo) -->
+  <div id="modal-rescale-calculator" class="modal-overlay">
+    <div class="modal-content" style="max-width: 550px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-arrows-up-down-left-right text-cyan"></i> Reescalado 3D (Regla del Cubo)</h4>
+        <button class="modal-close" onclick="closeModal('modal-rescale-calculator')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="p-3 rounded mb-3" style="background: rgba(0, 210, 255, 0.05); border: 1px solid rgba(0, 210, 255, 0.2); font-size: 12.5px; color: var(--text-main);">
+          <strong class="text-cyan"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ¡Cuidado con escalar piezas tridimensionales!</strong><br>
+          Si una pieza se escala al doble (200%), su volumen y peso aumentan al cubo (<strong>S³ = 2³ = 8 veces más</strong>) y su tiempo de máquina ~5.6 veces ($S^{2.5}$). Usa esta regla para no perder dinero al cotizar.
+        </div>
+
+        <div class="grid-2 mb-3">
+          <div class="form-group">
+            <label class="form-label text-xs">Modo de Escala</label>
+            <select id="rescale-mode" class="form-select text-xs" onchange="toggleRescaleInputs()">
+              <option value="percent" selected>Por Porcentaje (%)</option>
+              <option value="size">Por Dimensión en mm (X/Y/Z)</option>
+            </select>
+          </div>
+          <div class="form-group" id="rescale-percent-wrap">
+            <label class="form-label text-xs">Nueva Escala Deseada (%)</label>
+            <input type="number" id="rescale-percent" class="form-control text-xs" value="150" min="10" max="1000" oninput="calculateRescale()">
+          </div>
+          <div class="form-group" id="rescale-orig-size-wrap" style="display: none;">
+            <label class="form-label text-xs">Medida Original (mm)</label>
+            <input type="number" id="rescale-orig-size" class="form-control text-xs" value="100" min="1" oninput="calculateRescale()">
+          </div>
+          <div class="form-group" id="rescale-new-size-wrap" style="display: none;">
+            <label class="form-label text-xs">Medida Deseada (mm)</label>
+            <input type="number" id="rescale-new-size" class="form-control text-xs" value="150" min="1" oninput="calculateRescale()">
+          </div>
+        </div>
+
+        <div class="grid-2 mb-3">
+          <div class="form-group">
+            <label class="form-label text-xs">Peso Original Conocido (g)</label>
+            <input type="number" id="rescale-orig-weight" class="form-control text-xs" value="100" min="1" oninput="calculateRescale()">
+          </div>
+          <div class="form-group">
+            <label class="form-label text-xs">Tiempo Original Conocido (h)</label>
+            <input type="number" id="rescale-orig-time" class="form-control text-xs" value="4.0" min="0.1" step="0.5" oninput="calculateRescale()">
+          </div>
+        </div>
+
+        <!-- Resultados del Reescalado -->
+        <div class="p-3 rounded bg-dark border border-secondary mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom border-secondary">
+            <span class="text-xs text-muted">Factor Multiplicador Lineal (S):</span>
+            <strong class="text-cyan font-mono" id="rescale-factor-val">1.50x (150%)</strong>
+          </div>
+          <div class="grid-2 gap-2 text-center">
+            <div class="p-2 rounded" style="background: rgba(255,255,255,0.03);">
+              <div class="text-xs text-muted">Nuevo Peso Estimado (S³)</div>
+              <div class="fw-bold text-amber text-lg font-mono" id="rescale-new-weight">338 g</div>
+              <div class="text-xs text-danger" id="rescale-weight-delta">+238% de filamento</div>
+            </div>
+            <div class="p-2 rounded" style="background: rgba(255,255,255,0.03);">
+              <div class="text-xs text-muted">Nuevo Tiempo Estimado (S².⁵)</div>
+              <div class="fw-bold text-purple text-lg font-mono" id="rescale-new-time">11.0 h</div>
+              <div class="text-xs text-purple" id="rescale-time-delta">+175% de máquina</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex justify-content-between">
+        <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-rescale-calculator')">Cerrar</button>
+        <button type="button" class="btn-primary btn-sm" onclick="applyRescaleToCalculator()"><i class="fa-solid fa-calculator mr-1"></i> Aplicar a Calculadora Principal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 22: Calculador de Retales y Bobinas Casi Vacías -->
+  <div id="modal-spool-remnants" class="modal-overlay">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-recycle text-amber"></i> Aprovechar Retales & Bobinas Vacías</h4>
+        <button class="modal-close" onclick="closeModal('modal-spool-remnants')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs text-muted mb-3">
+          ¿Tienes una bobina con pocos gramos y no quieres arriesgarte a que se quede a medias en un pedido grande? Selecciona tu bobina o indica los gramos sobrantes y te recomendaremos piezas pequeñas ideales de tu catálogo para liquidar el sobrante con beneficio neto.
+        </p>
+
+        <div class="grid-2 mb-3">
+          <div class="form-group">
+            <label class="form-label text-xs">Elegir Bobina con Sobrante</label>
+            <select id="remnant-spool-picker" class="form-select text-xs" onchange="onRemnantSpoolSelect(this.value)">
+              <!-- Rendered dynamically -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label text-xs">Gramos Restantes en la Bobina</label>
+            <div class="d-flex align-items-center gap-2">
+              <input type="number" id="remnant-spool-grams" class="form-control text-xs" value="65" min="1" max="1000" oninput="calculateSpoolRemnants()">
+              <span class="text-xs text-muted">gramos</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label text-xs fw-bold text-white"><i class="fa-solid fa-lightbulb text-amber mr-1"></i> Modelos sugeridos para aprovechar exactamente tus gramos:</label>
+          <div id="remnants-results-grid" class="d-flex flex-column gap-2" style="max-height: 280px; overflow-y: auto;">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-spool-remnants')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 23: Añadir Foto al Showroom de Galería -->
+  <div id="modal-add-gallery" class="modal-overlay">
+    <div class="modal-content" style="max-width: 520px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-camera-retro text-cyan"></i> Subir Foto al Showroom</h4>
+        <button class="modal-close" onclick="closeModal('modal-add-gallery')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <form id="form-add-gallery" onsubmit="event.preventDefault(); saveGalleryPhoto();">
+          <div class="form-group mb-2">
+            <label class="form-label text-xs">Nombre / Título de la Pieza</label>
+            <input type="text" id="gal-item-title" class="form-control text-xs" placeholder="Ej. Casco Mandalorian Beskar" required>
+          </div>
+          <div class="grid-2 mb-2">
+            <div class="form-group">
+              <label class="form-label text-xs">Categoría</label>
+              <select id="gal-item-category" class="form-select text-xs">
+                <option value="Cosplay">Cosplay & Figuras</option>
+                <option value="Ingeniería">Prototipos & Mecánica</option>
+                <option value="Hogar">Hogar & Decoración</option>
+                <option value="Litofanía">Litofanías & Regalos</option>
+                <option value="Otros">Otros</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label text-xs">Material & Color</label>
+              <input type="text" id="gal-item-material" class="form-control text-xs" placeholder="Ej. PLA Silk Plata" required>
+            </div>
+          </div>
+          <div class="grid-2 mb-2">
+            <div class="form-group">
+              <label class="form-label text-xs">Impresora Usada</label>
+              <input type="text" id="gal-item-printer" class="form-control text-xs" placeholder="Ej. Bambu Lab X1-C">
+            </div>
+            <div class="form-group">
+              <label class="form-label text-xs">Parámetros / Acabado</label>
+              <input type="text" id="gal-item-specs" class="form-control text-xs" placeholder="Ej. Capa 0.16mm • 3 paredes">
+            </div>
+          </div>
+          <div class="form-group mb-2">
+            <label class="form-label text-xs">Foto del Trabajo (Archivo o URL)</label>
+            <input type="file" id="gal-item-file" accept="image/*" class="form-control text-xs mb-1" onchange="previewGalleryInputPhoto(this)">
+            <input type="url" id="gal-item-url" class="form-control text-xs" placeholder="O pega una URL de imagen https://..." oninput="previewGalleryUrl(this.value)">
+            <div id="gal-photo-preview-wrap" class="mt-2 text-center p-2 rounded bg-dark border border-secondary" style="display: none;">
+              <img id="gal-photo-preview" src="" style="max-height: 140px; max-width: 100%; border-radius: 6px; object-fit: cover;">
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer d-flex justify-content-between">
+        <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-add-gallery')">Cancelar</button>
+        <button type="button" class="btn-primary btn-sm" onclick="saveGalleryPhoto()"><i class="fa-solid fa-save mr-1"></i> Guardar en Showroom</button>
       </div>
     </div>
   </div>
