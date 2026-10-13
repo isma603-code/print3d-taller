@@ -588,11 +588,34 @@
                 <button class="btn-outline btn-sm text-emerald" onclick="shareColorPaletteWhatsApp()" title="Enviar muestrario de colores en stock al cliente por WhatsApp"><i class="fa-brands fa-whatsapp"></i> Carta de Colores</button>
                 <button class="btn-outline btn-sm text-amber" onclick="openSpoolRemnantsModal()" title="Aprovechar bobinas casi vacías recomendando piezas ideales"><i class="fa-solid fa-recycle"></i> Retales & Sobrantes</button>
                 <button class="btn-outline btn-sm text-cyan" onclick="openMaterialGuideModal()" title="Abrir y enviar comparativa de materiales para clientes"><i class="fa-solid fa-book-open"></i> Guía Materiales</button>
+                <button class="btn-outline btn-sm text-cyan" onclick="openFilamentPriceHistoryModal()" title="Histórico de precios pagados por kilo y detección de ofertas"><i class="fa-solid fa-tags"></i> Precios & Ofertas</button>
                 <button class="btn-outline btn-sm" onclick="openFilamentComparator()"><i class="fa-solid fa-scale-balanced"></i> Comparar</button>
                 <button class="btn-primary btn-sm" onclick="openModal('modal-filament')"><i class="fa-solid fa-plus"></i> Nueva Bobina</button>
               </div>
             </div>
             <div class="panel-body">
+              <!-- Tira de Inteligencia de Compras & Coste Medio -->
+              <div class="p-3 rounded mb-3" style="background: rgba(0, 210, 255, 0.04); border: 1px solid rgba(0, 210, 255, 0.2); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                  <div class="p-2 rounded bg-dark border border-secondary text-center" style="min-width: 100px;">
+                    <div class="text-xs text-muted">Coste Medio PLA</div>
+                    <strong class="text-cyan font-mono" id="fil-kpi-avg-pla">-- €/kg</strong>
+                  </div>
+                  <div class="p-2 rounded bg-dark border border-secondary text-center" style="min-width: 100px;">
+                    <div class="text-xs text-muted">Coste Medio PETG</div>
+                    <strong class="text-emerald font-mono" id="fil-kpi-avg-petg">-- €/kg</strong>
+                  </div>
+                  <div class="p-2 rounded bg-dark border border-secondary text-center" style="min-width: 130px;">
+                    <div class="text-xs text-muted">Mejor Oferta Histórica</div>
+                    <strong class="text-amber font-mono" id="fil-kpi-best-deal">-- €/kg</strong>
+                  </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <span class="text-xs text-muted d-none d-md-inline" id="fil-kpi-savings-tip">Ahorras comprando por volumen</span>
+                  <button class="btn-outline btn-xs text-cyan" onclick="openFilamentPriceHistoryModal()"><i class="fa-solid fa-chart-line mr-1"></i> Ver Historial de Ofertas</button>
+                </div>
+              </div>
+
               <div class="grid-3" id="filaments-grid">
                 <!-- Dynamic Content -->
               </div>
@@ -3196,6 +3219,98 @@
       <div class="modal-footer d-flex justify-content-between">
         <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-add-gallery')">Cancelar</button>
         <button type="button" class="btn-primary btn-sm" onclick="saveGalleryPhoto()"><i class="fa-solid fa-save mr-1"></i> Guardar en Showroom</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 24: Histórico de Compras de Filamento & Detección de Ofertas -->
+  <div id="modal-filament-price-history" class="modal-overlay">
+    <div class="modal-content" style="max-width: 720px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-tags text-cyan"></i> Histórico de Compras de Filamento & Detección de Ofertas</h4>
+        <button class="modal-close" onclick="closeModal('modal-filament-price-history')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs text-muted mb-3">
+          Compara los precios por kilo que has pagado en cada tienda (Amazon, Sunlu Store, AliExpress, Polymaker). Detecta dónde compras más barato y qué marcas te ofrecen mejor rentabilidad.
+        </p>
+
+        <!-- Formulario Rápido de Registro de Compra -->
+        <div class="p-3 rounded mb-3 bg-dark border border-secondary">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong class="text-xs text-white"><i class="fa-solid fa-cart-shopping text-cyan mr-1"></i> Registrar Compra de Bobinas / Pack</strong>
+            <span class="text-xs text-cyan font-mono" id="buy-calc-preview">Coste por Kilo: 13.00 €/kg</span>
+          </div>
+          <form id="form-filament-purchase" onsubmit="event.preventDefault(); saveFilamentPurchase();">
+            <div class="grid-3 mb-2">
+              <div class="form-group">
+                <label class="form-label text-xs">Fecha</label>
+                <input type="date" id="buy-fil-date" class="form-control text-xs" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label text-xs">Tienda / Proveedor</label>
+                <input type="text" id="buy-fil-provider" class="form-control text-xs" placeholder="ej. Sunlu Store, Amazon" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label text-xs">Marca</label>
+                <input type="text" id="buy-fil-brand" class="form-control text-xs" placeholder="ej. Sunlu, eSun, Bambu" required>
+              </div>
+            </div>
+            <div class="grid-3 mb-2">
+              <div class="form-group">
+                <label class="form-label text-xs">Material</label>
+                <select id="buy-fil-material" class="form-select text-xs">
+                  <option value="PLA">PLA / PLA+</option>
+                  <option value="PETG">PETG</option>
+                  <option value="TPU">TPU (Flexible)</option>
+                  <option value="ASA">ASA / ABS</option>
+                  <option value="Resina">Resina SLA</option>
+                  <option value="Nylon">Nylon / CF</option>
+                  <option value="Otros">Otros</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label text-xs">Kilos / Bobinas (kg)</label>
+                <input type="number" id="buy-fil-kg" class="form-control text-xs" value="5" min="0.25" step="0.25" oninput="calculatePurchasePricePerKg()" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label text-xs">Total Pagado (€)</label>
+                <input type="number" id="buy-fil-cost" class="form-control text-xs" value="65.00" min="1" step="0.01" oninput="calculatePurchasePricePerKg()" required>
+              </div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-2 border-top border-secondary">
+              <label class="d-flex align-items-center gap-2 m-0 cursor-pointer text-xs text-muted">
+                <input type="checkbox" id="buy-fil-add-expense" checked>
+                <span>Añadir simultáneamente a Gastos del taller</span>
+              </label>
+              <button type="submit" class="btn-primary btn-xs"><i class="fa-solid fa-save mr-1"></i> Guardar Compra</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Tabla Histórica de Compras -->
+        <h5 class="text-xs fw-bold text-white mb-2"><i class="fa-solid fa-clock-rotate-left text-amber mr-1"></i> Registro Histórico de Compras Realizadas:</h5>
+        <div class="table-responsive" style="max-height: 240px; overflow-y: auto;">
+          <table class="custom-table w-100 text-xs">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Material & Marca</th>
+                <th>Tienda</th>
+                <th>Kilos</th>
+                <th>Total</th>
+                <th>Precio / kg</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody id="filament-purchases-table-body">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-filament-price-history')">Cerrar</button>
       </div>
     </div>
   </div>

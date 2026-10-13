@@ -149,6 +149,14 @@ function loadState() {
                     { id: 'gal-4', title: 'Macetero Geométrico Origami', category: 'Hogar', material: 'PLA Terracota Mate', printer: 'Ender 3 V3', specs: 'Modo Vaso espiral 0.8mm estanco', photo: 'https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=600&auto=format&fit=crop&q=80', date: '2026-10-02' }
                 ];
             }
+            if (!state.filamentPurchases || state.filamentPurchases.length === 0) {
+                state.filamentPurchases = [
+                    { id: generateId(), date: '2026-09-10', provider: 'Sunlu Official Store', brand: 'Sunlu', material: 'PETG', quantityKg: 10, totalCost: 119.00, pricePerKg: 11.90, notes: 'Pack 10 bobinas oferta' },
+                    { id: generateId(), date: '2026-09-22', provider: 'Amazon', brand: 'eSun', material: 'PLA', quantityKg: 3, totalCost: 59.70, pricePerKg: 19.90, notes: 'Compra rápida urgente' },
+                    { id: generateId(), date: '2026-10-01', provider: 'AliExpress Choice', brand: 'Jayo', material: 'PLA', quantityKg: 5, totalCost: 67.50, pricePerKg: 13.50, notes: 'Oferta Choice 5 días' },
+                    { id: generateId(), date: '2026-10-08', provider: '3DJake', brand: 'Prusament', material: 'ASA', quantityKg: 2, totalCost: 58.00, pricePerKg: 29.00, notes: 'Material técnico resistente UV' }
+                ];
+            }
         } catch (e) {
             console.error('Failed to parse state:', e);
         }
@@ -220,6 +228,13 @@ function seedDemoData(showEffects = true) {
         { id: 'gal-2', title: 'Soporte Motor Nema 17 Reforzado', category: 'Ingeniería', material: 'PETG Carbono Negro', printer: 'Prusa MK4', specs: '5 paredes • 40% giroide • 80ºC', photo: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80', date: '2026-09-20' },
         { id: 'gal-3', title: 'Lámpara Luna Litofanía 3D', category: 'Litofanía', material: 'PLA Blanco Frío', printer: 'Bambu Lab X1-Carbon', specs: '100% relleno • Capa 0.12mm • Base LED', photo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80', date: '2026-09-28' },
         { id: 'gal-4', title: 'Macetero Geométrico Origami', category: 'Hogar', material: 'PLA Terracota Mate', printer: 'Ender 3 V3', specs: 'Modo Vaso espiral 0.8mm estanco', photo: 'https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=600&auto=format&fit=crop&q=80', date: '2026-10-02' }
+    ];
+
+    state.filamentPurchases = [
+        { id: generateId(), date: '2026-09-10', provider: 'Sunlu Official Store', brand: 'Sunlu', material: 'PETG', quantityKg: 10, totalCost: 119.00, pricePerKg: 11.90, notes: 'Pack 10 bobinas oferta' },
+        { id: generateId(), date: '2026-09-22', provider: 'Amazon', brand: 'eSun', material: 'PLA', quantityKg: 3, totalCost: 59.70, pricePerKg: 19.90, notes: 'Compra rápida urgente' },
+        { id: generateId(), date: '2026-10-01', provider: 'AliExpress Choice', brand: 'Jayo', material: 'PLA', quantityKg: 5, totalCost: 67.50, pricePerKg: 13.50, notes: 'Oferta Choice 5 días' },
+        { id: generateId(), date: '2026-10-08', provider: '3DJake', brand: 'Prusament', material: 'ASA', quantityKg: 2, totalCost: 58.00, pricePerKg: 29.00, notes: 'Material técnico resistente UV' }
     ];
 
     saveState();
@@ -1717,6 +1732,8 @@ function renderFilaments() {
         `;
         grid.appendChild(div);
     });
+
+    renderFilamentPurchasesSummary();
 }
 
 function openFilamentComparator() {
@@ -6627,6 +6644,189 @@ window.openSpoolRemnantsModal = openSpoolRemnantsModal;
 window.onRemnantSpoolSelect = onRemnantSpoolSelect;
 window.calculateSpoolRemnants = calculateSpoolRemnants;
 window.createOrderFromRemnant = createOrderFromRemnant;
+
+// ==========================================================================
+// FEATURE 6: Histórico de Compras de Filamento & Detección de Ofertas
+// ==========================================================================
+function renderFilamentPurchasesSummary() {
+    if (!state.filamentPurchases) state.filamentPurchases = [];
+    const purchases = state.filamentPurchases;
+
+    const plaPurchases = purchases.filter(p => p.material && p.material.toUpperCase().includes('PLA'));
+    const petgPurchases = purchases.filter(p => p.material && p.material.toUpperCase().includes('PETG'));
+
+    const avgPla = plaPurchases.length > 0 
+        ? (plaPurchases.reduce((s, p) => s + (p.pricePerKg * p.quantityKg), 0) / plaPurchases.reduce((s, p) => s + p.quantityKg, 0)).toFixed(2)
+        : '19.90';
+
+    const avgPetg = petgPurchases.length > 0
+        ? (petgPurchases.reduce((s, p) => s + (p.pricePerKg * p.quantityKg), 0) / petgPurchases.reduce((s, p) => s + p.quantityKg, 0)).toFixed(2)
+        : '18.50';
+
+    let bestDeal = null;
+    purchases.forEach(p => {
+        if (!bestDeal || p.pricePerKg < bestDeal.pricePerKg) {
+            bestDeal = p;
+        }
+    });
+
+    const plaEl = document.getElementById('fil-kpi-avg-pla');
+    const petgEl = document.getElementById('fil-kpi-avg-petg');
+    const dealEl = document.getElementById('fil-kpi-best-deal');
+    const tipEl = document.getElementById('fil-kpi-savings-tip');
+
+    if (plaEl) plaEl.textContent = `${avgPla} €/kg`;
+    if (petgEl) petgEl.textContent = `${avgPetg} €/kg`;
+    if (dealEl) dealEl.textContent = bestDeal ? `${bestDeal.pricePerKg.toFixed(2)} €/kg` : '11.90 €/kg';
+
+    if (tipEl && bestDeal) {
+        const savingsPct = Math.max(0, Math.round(((22.00 - bestDeal.pricePerKg) / 22.00) * 100));
+        tipEl.innerHTML = `Mejor oferta en <strong>${escapeHtml(bestDeal.provider)}</strong> (-${savingsPct}% vs PVP habitual)`;
+    }
+}
+
+function openFilamentPriceHistoryModal() {
+    const dateInp = document.getElementById('buy-fil-date');
+    if (dateInp && !dateInp.value) {
+        dateInp.value = new Date().toISOString().split('T')[0];
+    }
+
+    calculatePurchasePricePerKg();
+    renderFilamentPurchasesTable();
+    openModal('modal-filament-price-history');
+}
+
+function calculatePurchasePricePerKg() {
+    const kg = parseFloat(document.getElementById('buy-fil-kg')?.value) || 1;
+    const cost = parseFloat(document.getElementById('buy-fil-cost')?.value) || 0;
+    const previewEl = document.getElementById('buy-calc-preview');
+
+    if (kg > 0 && cost > 0) {
+        const pricePerKg = (cost / kg).toFixed(2);
+        let badge = '';
+        if (pricePerKg < 14) badge = '🔥 ¡Ofertón!';
+        else if (pricePerKg <= 18) badge = '👍 Buen precio';
+        else badge = '🏷️ Precio estándar';
+
+        if (previewEl) previewEl.textContent = `Coste por Kilo: ${pricePerKg} €/kg (${badge})`;
+    } else {
+        if (previewEl) previewEl.textContent = 'Coste por Kilo: -- €/kg';
+    }
+}
+
+function renderFilamentPurchasesTable() {
+    const tbody = document.getElementById('filament-purchases-table-body');
+    if (!tbody) return;
+
+    if (!state.filamentPurchases) state.filamentPurchases = [];
+
+    if (state.filamentPurchases.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted p-3">No hay compras de filamento registradas todavía.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = state.filamentPurchases.map(p => {
+        let badgeClass = 'bg-secondary';
+        let dealLabel = 'Estándar';
+        if (p.pricePerKg < 14) {
+            badgeClass = 'bg-emerald';
+            dealLabel = '¡Ofertón!';
+        } else if (p.pricePerKg <= 18) {
+            badgeClass = 'bg-cyan';
+            dealLabel = 'Buen precio';
+        }
+
+        return `
+            <tr>
+                <td>${escapeHtml(p.date || '')}</td>
+                <td><strong>${escapeHtml(p.brand)}</strong> <span class="badge bg-dark border border-secondary">${escapeHtml(p.material)}</span></td>
+                <td><span class="text-white">${escapeHtml(p.provider)}</span></td>
+                <td>${p.quantityKg} kg</td>
+                <td class="font-mono">${parseFloat(p.totalCost || 0).toFixed(2)} €</td>
+                <td>
+                    <strong class="font-mono text-cyan">${parseFloat(p.pricePerKg || 0).toFixed(2)} €/kg</strong>
+                    <span class="badge ${badgeClass} text-xs ml-1">${dealLabel}</span>
+                </td>
+                <td>
+                    <button class="btn btn-outline btn-xs text-danger" onclick="deleteFilamentPurchase('${p.id}')" title="Eliminar registro">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function saveFilamentPurchase() {
+    const date = document.getElementById('buy-fil-date')?.value || new Date().toISOString().split('T')[0];
+    const provider = document.getElementById('buy-fil-provider')?.value?.trim();
+    const brand = document.getElementById('buy-fil-brand')?.value?.trim();
+    const material = document.getElementById('buy-fil-material')?.value || 'PLA';
+    const quantityKg = parseFloat(document.getElementById('buy-fil-kg')?.value) || 1;
+    const totalCost = parseFloat(document.getElementById('buy-fil-cost')?.value) || 0;
+    const addExpense = document.getElementById('buy-fil-add-expense')?.checked || false;
+
+    if (!provider || !brand || totalCost <= 0) {
+        showToast('Por favor completa todos los campos de la compra', 'warning');
+        return;
+    }
+
+    const pricePerKg = parseFloat((totalCost / quantityKg).toFixed(2));
+
+    if (!state.filamentPurchases) state.filamentPurchases = [];
+
+    const purchase = {
+        id: generateId(),
+        date,
+        provider,
+        brand,
+        material,
+        quantityKg,
+        totalCost,
+        pricePerKg,
+        notes: `Compra en ${provider}`
+    };
+
+    state.filamentPurchases.unshift(purchase);
+
+    if (addExpense) {
+        if (!state.expenses) state.expenses = [];
+        state.expenses.unshift({
+            id: generateId(),
+            date,
+            concept: `Compra ${quantityKg}kg ${brand} ${material} (${provider})`,
+            category: 'Filamento',
+            amount: totalCost
+        });
+        renderExpenses();
+    }
+
+    saveState();
+    renderFilamentPurchasesSummary();
+    renderFilamentPurchasesTable();
+    showToast(`✅ Compra registrada a ${pricePerKg} €/kg${addExpense ? ' y añadida a Gastos' : ''}`, 'success');
+}
+
+function deleteFilamentPurchase(id) {
+    if (!confirm('¿Eliminar este registro de compra?')) return;
+    state.filamentPurchases = (state.filamentPurchases || []).filter(p => p.id !== id);
+    saveState();
+    renderFilamentPurchasesSummary();
+    renderFilamentPurchasesTable();
+    showToast('Registro de compra eliminado', 'info');
+}
+
+// Window bindings for Feature 6
+window.renderFilamentPurchasesSummary = renderFilamentPurchasesSummary;
+window.openFilamentPriceHistoryModal = openFilamentPriceHistoryModal;
+window.calculatePurchasePricePerKg = calculatePurchasePricePerKg;
+window.renderFilamentPurchasesTable = renderFilamentPurchasesTable;
+window.saveFilamentPurchase = saveFilamentPurchase;
+window.deleteFilamentPurchase = deleteFilamentPurchase;
 
 
 
