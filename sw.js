@@ -1,4 +1,4 @@
-const CACHE_NAME = 'print3d-erp-v27';
+const CACHE_NAME = 'print3d-erp-v28';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

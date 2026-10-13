@@ -626,11 +626,53 @@
         <!-- Section 6: Printers -->
         <section id="tab-printers" class="content-section" style="display: none;">
           <div class="panel">
-            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-              <div class="panel-title">Flota de Impresoras</div>
-              <button class="btn-primary btn-sm" onclick="openModal('modal-printer')"><i class="fa-solid fa-plus"></i> Añadir Impresora</button>
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <div class="panel-title text-cyan"><i class="fa-solid fa-print mr-1"></i> Flota de Impresoras & Telemetría en Vivo</div>
+                <div class="text-sm text-gray mt-1">Supervisa en tiempo real las temperaturas, progreso y cámaras de tu Bambu Lab A1 y Anycubic S1 Max.</div>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn-outline btn-sm text-cyan" onclick="openLiveBridgeGuideModal()" title="Instrucciones para conectar Bambu Lab A1 con el puente local"><i class="fa-solid fa-satellite-dish"></i> Puente WiFi Bambu A1</button>
+                <button class="btn-primary btn-sm" onclick="openModal('modal-printer')"><i class="fa-solid fa-plus"></i> Añadir Impresora</button>
+              </div>
             </div>
             <div class="panel-body">
+              <!-- Barra de Telemetría Real en Vivo (Bambu Lab A1 & Anycubic) -->
+              <div class="p-3 rounded mb-4" style="background: linear-gradient(145deg, rgba(0, 210, 255, 0.05), rgba(168, 85, 247, 0.05)); border: 1px solid rgba(0, 210, 255, 0.25);">
+                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="live-dot" id="tele-live-indicator" style="width: 10px; height: 10px; border-radius: 50%; background: #10b981; display: inline-block; box-shadow: 0 0 8px #10b981; animation: pulse 1.5s infinite;"></span>
+                    <strong class="text-sm text-white" id="tele-active-printer-title">Bambu Lab A1 — Conectada en Tiempo Real</strong>
+                    <span class="badge bg-emerald text-xs" id="tele-bridge-status-badge">Puente Conectado (3005)</span>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <button class="btn-outline btn-xs text-danger" onclick="sendPrinterLiveControl('pause')" title="Pausar Impresión"><i class="fa-solid fa-pause"></i> Pausar</button>
+                    <button class="btn-outline btn-xs text-emerald" onclick="sendPrinterLiveControl('resume')" title="Reanudar"><i class="fa-solid fa-play"></i> Reanudar</button>
+                    <button class="btn-outline btn-xs text-cyan" onclick="openPrinterCameraModal('bambu-a1')" title="Ver Cámara en Directo"><i class="fa-solid fa-video"></i> Cámara</button>
+                    <button class="btn-outline btn-xs" onclick="openPrinterWifiConfigModal('bambu-a1')" title="Configurar IP y Claves"><i class="fa-solid fa-sliders"></i> Ajustes IP</button>
+                  </div>
+                </div>
+
+                <div class="grid-4 gap-2 text-center" style="font-size: 11.5px;">
+                  <div class="p-2 rounded bg-dark border border-secondary">
+                    <span class="text-xs text-muted d-block">Boquilla (Nozzle)</span>
+                    <strong class="font-mono text-cyan text-base" id="tele-live-nozzle">220°C / 220°C</strong>
+                  </div>
+                  <div class="p-2 rounded bg-dark border border-secondary">
+                    <span class="text-xs text-muted d-block">Cama Caliente</span>
+                    <strong class="font-mono text-amber text-base" id="tele-live-bed">60°C / 60°C</strong>
+                  </div>
+                  <div class="p-2 rounded bg-dark border border-secondary">
+                    <span class="text-xs text-muted d-block">Progreso & Capa</span>
+                    <strong class="font-mono text-emerald text-base" id="tele-live-progress">64% (Capa 224/350)</strong>
+                  </div>
+                  <div class="p-2 rounded bg-dark border border-secondary">
+                    <span class="text-xs text-muted d-block">Archivo / Tiempo Restante</span>
+                    <strong class="font-mono text-white text-base" id="tele-live-time">~65 min restantes</strong>
+                  </div>
+                </div>
+              </div>
+
               <div class="grid-3" id="printers-grid">
                 <!-- Dynamic Content -->
               </div>
@@ -3311,6 +3353,158 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-filament-price-history')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 25: Configuración de Telemetría WiFi de Impresora -->
+  <div id="modal-printer-wifi-config" class="modal-overlay">
+    <div class="modal-content" style="max-width: 580px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-satellite-dish text-cyan"></i> Configuración de Conexión WiFi & Telemetría</h4>
+        <button class="modal-close" onclick="closeModal('modal-printer-wifi-config')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs text-muted mb-3">
+          Conecta tu impresora para recibir temperaturas en directo, progreso de impresión y control de parada de emergencia.
+        </p>
+        <form id="form-printer-wifi" onsubmit="event.preventDefault(); savePrinterWifiConfig();">
+          <input type="hidden" id="wifi-printer-id">
+          
+          <div class="form-group mb-3">
+            <label class="form-label text-xs">Tipo de Máquina / Servidor</label>
+            <select id="wifi-printer-type" class="form-select text-xs" onchange="onPrinterTypeChange(this.value)">
+              <option value="bambu" selected>Bambu Lab (A1 / P1 / X1) vía Puente Local (MQTT)</option>
+              <option value="klipper">Klipper / Moonraker (Mainsail / Fluidd / Creality K1)</option>
+              <option value="octoprint">OctoPrint (Raspberry Pi / Servidor PC)</option>
+              <option value="stream">Anycubic / Stream de Cámara IP o Móvil Viejo</option>
+              <option value="sim">Simulación Demostración (Modo Pruebas)</option>
+            </select>
+          </div>
+
+          <div class="grid-2 mb-3">
+            <div class="form-group">
+              <label class="form-label text-xs">Dirección IP Local</label>
+              <input type="text" id="wifi-printer-ip" class="form-control text-xs font-mono" placeholder="192.168.1.50" value="192.168.1.50" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label text-xs">Puerto de Red</label>
+              <input type="number" id="wifi-printer-port" class="form-control text-xs font-mono" placeholder="8883" value="8883" required>
+            </div>
+          </div>
+
+          <div class="grid-2 mb-3" id="wifi-auth-fields">
+            <div class="form-group">
+              <label class="form-label text-xs">Código de Acceso / Access Code</label>
+              <input type="password" id="wifi-printer-code" class="form-control text-xs font-mono" placeholder="En pantalla de la A1" value="12345678">
+            </div>
+            <div class="form-group">
+              <label class="form-label text-xs">Número de Serie (Serial)</label>
+              <input type="text" id="wifi-printer-serial" class="form-control text-xs font-mono" placeholder="01P00A123456789" value="01P00A123456789">
+            </div>
+          </div>
+
+          <div class="form-group mb-3">
+            <label class="form-label text-xs">URL del Stream de la Cámara (Opcional)</label>
+            <input type="url" id="wifi-printer-camera-url" class="form-control text-xs" placeholder="http://192.168.1.50:8080/?action=stream o cámara IP">
+            <span class="text-xs text-dim">Para la Anycubic o Bambu: URL de vídeo MJPEG, RTSP web o cámara de móvil viejo.</span>
+          </div>
+
+          <div class="p-2 rounded bg-dark border border-secondary mb-3 d-flex justify-content-between align-items-center">
+            <label class="d-flex align-items-center gap-2 m-0 cursor-pointer text-xs text-white">
+              <input type="checkbox" id="wifi-printer-auto-advance" checked>
+              <span>Auto-avanzar pedido a "Listo" en Kanban al terminar el 100%</span>
+            </label>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-2 border-top border-secondary">
+            <button type="button" class="btn-outline btn-xs text-cyan" onclick="testPrinterWifiConnection()"><i class="fa-solid fa-plug mr-1"></i> Probar Conexión</button>
+            <button type="submit" class="btn-primary btn-xs"><i class="fa-solid fa-save mr-1"></i> Guardar y Conectar</button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-printer-wifi-config')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 26: Visor de Cámara en Directo & Control Remoto -->
+  <div id="modal-printer-camera" class="modal-overlay">
+    <div class="modal-content" style="max-width: 680px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-video text-cyan mr-1"></i> Visor de Cámara en Vivo: <span id="cam-modal-printer-name">Bambu Lab A1</span></h4>
+        <button class="modal-close" onclick="closeModal('modal-printer-camera')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div style="position: relative; width: 100%; height: 320px; background: #000; border-radius: 8px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
+          <img id="cam-modal-stream-img" src="" style="width: 100%; height: 100%; object-fit: contain; display: none;" onerror="onCameraStreamError()">
+          <div id="cam-modal-placeholder" class="text-center p-4">
+            <i class="fa-solid fa-camera-retro fa-3x text-dim mb-3"></i>
+            <h5 class="text-white text-sm">Cámara en Espera</h5>
+            <p class="text-xs text-muted mb-2">Para ver vídeo continuo, asegúrate de tener el stream activo en tu red local o introduce la URL en "Ajustes IP".</p>
+            <button class="btn-outline btn-xs text-cyan" onclick="openPrinterWifiConfigModal('bambu-a1')"><i class="fa-solid fa-gear mr-1"></i> Configurar URL de Cámara</button>
+          </div>
+
+          <!-- Overlay con telemetría flotante sobre la imagen -->
+          <div style="position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); padding: 6px 12px; border-radius: 6px; font-size: 11px; color: #fff;">
+            <span class="live-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block; margin-right: 6px;"></span>
+            <span id="cam-overlay-temps">Nozzle: 220°C • Cama: 60°C</span>
+          </div>
+          <div style="position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); padding: 6px 12px; border-radius: 6px; font-size: 11px; color: #00d2ff; font-weight: bold;">
+            <span id="cam-overlay-progress">Progreso: 64%</span>
+          </div>
+        </div>
+
+        <!-- Botones de Control Remoto de Emergencia -->
+        <div class="d-flex justify-content-between align-items-center mt-3 p-3 rounded bg-dark border border-secondary flex-wrap gap-2">
+          <div>
+            <span class="text-xs text-muted d-block">Control de Impresión:</span>
+            <strong class="text-xs text-white" id="cam-modal-state-text">Estado: Imprimiendo</strong>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn-outline btn-sm text-amber" onclick="sendPrinterLiveControl('pause')"><i class="fa-solid fa-pause mr-1"></i> Pausar</button>
+            <button class="btn-outline btn-sm text-emerald" onclick="sendPrinterLiveControl('resume')"><i class="fa-solid fa-play mr-1"></i> Reanudar</button>
+            <button class="btn-danger btn-sm" onclick="sendPrinterLiveControl('stop')" style="font-weight: 700;"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Parada de Emergencia</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-printer-camera')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 27: Guía Paso a Paso para Conectar Bambu Lab A1 -->
+  <div id="modal-live-bridge-guide" class="modal-overlay">
+    <div class="modal-content" style="max-width: 620px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-satellite-dish text-cyan"></i> Cómo Conectar tu Bambu Lab A1 en 2 Minutos</h4>
+        <button class="modal-close" onclick="closeModal('modal-live-bridge-guide')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body" style="font-size: 13px; color: var(--text-main); line-height: 1.6;">
+        <div class="p-3 rounded mb-3" style="background: rgba(0, 210, 255, 0.05); border: 1px solid rgba(0, 210, 255, 0.25);">
+          <strong class="text-cyan"><i class="fa-solid fa-circle-check mr-1"></i> ¡El servidor puente ya está creado en tu ordenador!</strong><br>
+          Hemos dejado listo el archivo <code class="font-mono text-amber">bambu-bridge.js</code> en tu carpeta de proyecto. Es 100% nativo de Node.js (no necesita instalar nada extra).
+        </div>
+
+        <h5 class="text-xs fw-bold text-white mb-2">Pasos para vincular tu Bambu Lab A1 física:</h5>
+        <ol style="padding-left: 20px; margin-bottom: 15px;" class="text-xs text-dim">
+          <li class="mb-2"><strong>Mira la pantalla táctil de tu A1:</strong> Ve a <em>Ajustes (icono tuerca) ➡️ Red / WiFi</em>. Apunta la <strong>Dirección IP</strong> (ej. <code class="text-cyan">192.168.1.50</code>) y el <strong>Código de Acceso (Access Code)</strong>.</li>
+          <li class="mb-2"><strong>Introduce los datos:</strong> Pulsa el botón <em>"Ajustes IP"</em> en la cabecera y escribe tu IP y código de acceso.</li>
+          <li class="mb-2"><strong>Inicia el puente en tu terminal / PowerShell:</strong> Abre la terminal en la carpeta y escribe:
+            <div class="p-2 rounded bg-dark border border-secondary font-mono text-cyan mt-1">node bambu-bridge.js</div>
+          </li>
+          <li><strong>¡Listo!</strong> La web detectará el puerto 3005 al segundo y empezará a mostrar las temperaturas, el % y las capas en vivo.</li>
+        </ol>
+
+        <div class="p-2 rounded bg-dark border border-secondary text-xs text-muted">
+          💡 <em>Para tu Anycubic S1 Max:</em> puedes conectar una webcam USB a tu PC o la cámara de un móvil viejo con la app "IP Webcam" y poner su enlace en el visor de cámara para tener ambas vigiladas.
+        </div>
+      </div>
+      <div class="modal-footer d-flex justify-content-between">
+        <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-live-bridge-guide')">Entendido</button>
+        <button type="button" class="btn-primary btn-sm" onclick="closeModal('modal-live-bridge-guide'); openPrinterWifiConfigModal('bambu-a1');"><i class="fa-solid fa-sliders mr-1"></i> Configurar Ahora</button>
       </div>
     </div>
   </div>

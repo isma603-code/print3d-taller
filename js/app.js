@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initCalculator();
     initSignaturePad();
     startTelemetrySimulation();
+    initPrinterTelemetryStream();
     
     renderAll();
 
@@ -122,7 +123,43 @@ function loadState() {
                     if (state.printers[i].lastCleanHours === undefined) state.printers[i].lastCleanHours = 0;
                     if (state.printers[i].lastLubeHours === undefined) state.printers[i].lastLubeHours = 0;
                     if (state.printers[i].lastBeltHours === undefined) state.printers[i].lastBeltHours = 0;
+                    if (state.printers[i].name && state.printers[i].name.includes('X1-Carbon')) {
+                        state.printers[i].name = 'Bambu Lab A1';
+                        state.printers[i].wifiType = 'bambu';
+                    }
+                    if (state.printers[i].name && (state.printers[i].name.includes('Saturn') || state.printers[i].name.includes('Anycubic'))) {
+                        state.printers[i].name = 'Anycubic S1 Max';
+                        state.printers[i].tech = 'FDM';
+                        state.printers[i].nozzle = 0.4;
+                        state.printers[i].wifiType = 'stream';
+                    }
                 }
+            }
+            if (!state.printerTelemetry) {
+                state.printerTelemetry = {
+                    'bambu-a1': {
+                        type: 'bambu',
+                        name: 'Bambu Lab A1',
+                        ip: '192.168.1.50',
+                        port: 8883,
+                        code: '12345678',
+                        serial: '01P00A123456789',
+                        cameraUrl: '',
+                        autoAdvance: true,
+                        connected: true
+                    },
+                    'anycubic-s1': {
+                        type: 'stream',
+                        name: 'Anycubic S1 Max',
+                        ip: '192.168.1.60',
+                        port: 8080,
+                        code: '',
+                        serial: '',
+                        cameraUrl: '',
+                        autoAdvance: false,
+                        connected: false
+                    }
+                };
             }
             if (state.orders) {
                 for (let i = 0; i < state.orders.length; i++) {
@@ -177,9 +214,9 @@ function seedDemoData(showEffects = true) {
     ];
     
     state.printers = [
-        { id: generateId(), name: 'Bambu Lab X1-Carbon', tech: 'FDM', nozzle: 0.4, power: 350, wear: 0.20, purchasePrice: 1450, amortMonths: 24, fixedCostMonth: 25, kwhPrice: 0.18, hours: 1420, nozzleHours: 85, status: 'Printing' },
-        { id: generateId(), name: 'Prusa MK4', tech: 'FDM', nozzle: 0.4, power: 250, wear: 0.15, purchasePrice: 850, amortMonths: 36, fixedCostMonth: 15, kwhPrice: 0.18, hours: 680, nozzleHours: 210, status: 'Idle' },
-        { id: generateId(), name: 'Elegoo Saturn 3 Ultra', tech: 'SLA', nozzle: 0.05, power: 120, wear: 0.25, purchasePrice: 480, amortMonths: 18, fixedCostMonth: 30, kwhPrice: 0.18, hours: 310, nozzleHours: 40, status: 'Idle' }
+        { id: generateId(), name: 'Bambu Lab A1', tech: 'FDM', nozzle: 0.4, power: 180, wear: 0.18, purchasePrice: 429, amortMonths: 18, fixedCostMonth: 20, kwhPrice: 0.18, hours: 840, nozzleHours: 65, status: 'Printing', wifiType: 'bambu' },
+        { id: generateId(), name: 'Anycubic S1 Max', tech: 'FDM', nozzle: 0.4, power: 300, wear: 0.20, purchasePrice: 499, amortMonths: 24, fixedCostMonth: 25, kwhPrice: 0.18, hours: 520, nozzleHours: 140, status: 'Idle', wifiType: 'stream' },
+        { id: generateId(), name: 'Prusa MK4', tech: 'FDM', nozzle: 0.4, power: 250, wear: 0.15, purchasePrice: 850, amortMonths: 36, fixedCostMonth: 15, kwhPrice: 0.18, hours: 680, nozzleHours: 210, status: 'Idle', wifiType: 'klipper' }
     ];
 
     const today = new Date();
@@ -1878,7 +1915,19 @@ function renderPrinters() {
                 `;
             })()}
 
-            <div style="display:flex; gap:6px; margin-top:14px;">
+            <!-- WiFi & Telemetría en directo -->
+            <div class="d-flex justify-content-between align-items-center mt-2 p-2 rounded" style="background: rgba(0, 210, 255, 0.04); border: 1px solid rgba(0, 210, 255, 0.2);">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="live-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${p.name.includes('Bambu') ? '#10b981' : '#64748b'}; display: inline-block;"></span>
+                    <span class="text-xs text-white">${p.name.includes('Bambu') ? 'Telemetría WiFi activa' : 'Conexión IP lista'}</span>
+                </div>
+                <div class="d-flex gap-1">
+                    <button class="btn-xs btn-outline text-cyan" onclick="openPrinterCameraModal('${p.id}')" title="Ver Cámara"><i class="fa-solid fa-video"></i></button>
+                    <button class="btn-xs btn-outline" onclick="openPrinterWifiConfigModal('${p.id}')" title="Ajustes WiFi"><i class="fa-solid fa-satellite-dish"></i></button>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:6px; margin-top:10px;">
                 <button class="btn btn-outline btn-sm w-100 text-cyan" onclick="openPrinterProfile('${p.id}')">
                     <i class="fa-solid fa-chart-column"></i> Perfil & Beneficio
                 </button>
@@ -6828,6 +6877,342 @@ window.renderFilamentPurchasesTable = renderFilamentPurchasesTable;
 window.saveFilamentPurchase = saveFilamentPurchase;
 window.deleteFilamentPurchase = deleteFilamentPurchase;
 
+// ==========================================================================
+// 28. Telemetría WiFi en Tiempo Real & Puente Bambu Lab / Anycubic (SSE + REST)
+// ==========================================================================
 
+let telemetryEventSource = null;
+let lastAutoAdvancedSession = null;
 
+function initPrinterTelemetryStream() {
+    if (telemetryEventSource) {
+        try { telemetryEventSource.close(); } catch (e) {}
+    }
 
+    const bridgeBadge = document.getElementById('tele-bridge-status-badge');
+    const liveIndicator = document.getElementById('tele-live-indicator');
+
+    try {
+        telemetryEventSource = new EventSource('http://localhost:3005/api/events');
+
+        telemetryEventSource.onopen = function () {
+            if (bridgeBadge) {
+                bridgeBadge.className = 'badge bg-emerald text-xs';
+                bridgeBadge.textContent = 'Puente Conectado (3005)';
+            }
+            if (liveIndicator) {
+                liveIndicator.style.background = '#10b981';
+                liveIndicator.style.boxShadow = '0 0 8px #10b981';
+            }
+        };
+
+        telemetryEventSource.onmessage = function (event) {
+            try {
+                const data = JSON.parse(event.data);
+                updateLiveTelemetryUI(data);
+            } catch (err) {
+                console.warn('[Telemetry] Error parseando datos SSE:', err);
+            }
+        };
+
+        telemetryEventSource.onerror = function () {
+            if (bridgeBadge) {
+                bridgeBadge.className = 'badge bg-secondary text-xs';
+                bridgeBadge.textContent = 'Puente Desconectado';
+            }
+            if (liveIndicator) {
+                liveIndicator.style.background = '#f59e0b';
+                liveIndicator.style.boxShadow = 'none';
+            }
+        };
+    } catch (err) {
+        console.warn('[Telemetry] EventSource no soportado o error:', err);
+    }
+}
+
+function updateLiveTelemetryUI(data) {
+    if (!data) return;
+
+    // Actualizar barra de telemetría de impresoras
+    const titleEl = document.getElementById('tele-active-printer-title');
+    const nozzleEl = document.getElementById('tele-live-nozzle');
+    const bedEl = document.getElementById('tele-live-bed');
+    const progressEl = document.getElementById('tele-live-progress');
+    const timeEl = document.getElementById('tele-live-time');
+
+    if (titleEl && data.printer) {
+        titleEl.textContent = `${data.printer} — ${data.connected ? 'Conectada en Tiempo Real' : 'En Espera'}`;
+    }
+    if (nozzleEl && data.nozzleTemp !== undefined) {
+        nozzleEl.textContent = `${data.nozzleTemp}°C / ${data.nozzleTarget || data.nozzleTemp}°C`;
+    }
+    if (bedEl && data.bedTemp !== undefined) {
+        bedEl.textContent = `${data.bedTemp}°C / ${data.bedTarget || data.bedTemp}°C`;
+    }
+    if (progressEl && data.progress !== undefined) {
+        const layerInfo = data.layerNum ? ` (Capa ${data.layerNum}/${data.totalLayers || '—'})` : '';
+        progressEl.textContent = `${data.progress}%${layerInfo}`;
+    }
+    if (timeEl) {
+        if (data.remainingMin && data.remainingMin > 0) {
+            timeEl.textContent = `~${data.remainingMin} min restantes`;
+        } else if (data.file && data.file !== 'Ninguno') {
+            timeEl.textContent = data.file;
+        } else {
+            timeEl.textContent = data.state === 'FINISH' ? 'Completado' : 'En espera';
+        }
+    }
+
+    // Actualizar widget de telemetría en Dashboard
+    const dashNozzle = document.getElementById('tele-nozzle-temp');
+    const dashBed = document.getElementById('tele-bed-temp');
+    const dashLayer = document.getElementById('tele-layer-count');
+    if (dashNozzle && data.nozzleTemp !== undefined) dashNozzle.textContent = `${data.nozzleTemp}°C`;
+    if (dashBed && data.bedTemp !== undefined) dashBed.textContent = `${data.bedTemp}°C`;
+    if (dashLayer && data.layerNum !== undefined) dashLayer.textContent = `${data.layerNum} / ${data.totalLayers || 350}`;
+
+    // Actualizar overlay de la cámara si está abierta
+    const camTemps = document.getElementById('cam-overlay-temps');
+    const camProg = document.getElementById('cam-overlay-progress');
+    const camState = document.getElementById('cam-modal-state-text');
+    if (camTemps && data.nozzleTemp !== undefined) {
+        camTemps.textContent = `Nozzle: ${data.nozzleTemp}°C • Cama: ${data.bedTemp}°C`;
+    }
+    if (camProg && data.progress !== undefined) {
+        camProg.textContent = `Progreso: ${data.progress}%`;
+    }
+    if (camState) {
+        const stateSpanish = {
+            'RUNNING': 'Imprimiendo',
+            'PAUSE': 'En Pausa',
+            'FINISH': 'Completado',
+            'IDLE': 'En Espera'
+        }[data.state] || data.state || 'Imprimiendo';
+        camState.textContent = `Estado: ${stateSpanish}`;
+    }
+
+    // Auto-avanzar pedido en Kanban cuando la pieza llega al 100%
+    const bambuCfg = state.printerTelemetry && state.printerTelemetry['bambu-a1'];
+    const shouldAutoAdvance = bambuCfg ? bambuCfg.autoAdvance !== false : true;
+
+    if (shouldAutoAdvance && (data.progress >= 100 || data.state === 'FINISH')) {
+        const sessionKey = `${data.file || 'job'}-${Math.floor(Date.now() / 60000)}`;
+        if (lastAutoAdvancedSession !== sessionKey) {
+            lastAutoAdvancedSession = sessionKey;
+            
+            const printingOrder = (state.orders || []).find(o => o.status === 'Imprimiendo');
+            if (printingOrder) {
+                printingOrder.status = 'Listo';
+                if (!printingOrder.changelog) printingOrder.changelog = [];
+                printingOrder.changelog.unshift({
+                    date: new Date().toISOString(),
+                    from: 'Imprimiendo',
+                    to: 'Listo',
+                    note: 'Impresión completada al 100% detectada automáticamente por telemetría WiFi'
+                });
+                saveState();
+                renderOrders();
+                renderDashboard();
+                showToast(`🎉 ¡Impresión completada! El pedido "${printingOrder.title}" se ha movido automáticamente a "Listo".`, 'success');
+                if (typeof triggerConfetti === 'function') triggerConfetti();
+                if (typeof playSoundEffect === 'function') playSoundEffect('success');
+            }
+        }
+    }
+}
+
+function openPrinterWifiConfigModal(printerId) {
+    printerId = printerId || 'bambu-a1';
+    if (!state.printerTelemetry) {
+        state.printerTelemetry = {};
+    }
+    const cfg = state.printerTelemetry[printerId] || {
+        type: printerId.includes('anycubic') ? 'stream' : 'bambu',
+        name: printerId.includes('anycubic') ? 'Anycubic S1 Max' : 'Bambu Lab A1',
+        ip: printerId.includes('anycubic') ? '192.168.1.60' : '192.168.1.50',
+        port: printerId.includes('anycubic') ? 8080 : 8883,
+        code: '12345678',
+        serial: '01P00A123456789',
+        cameraUrl: '',
+        autoAdvance: true
+    };
+
+    const idInput = document.getElementById('wifi-printer-id');
+    const typeSelect = document.getElementById('wifi-printer-type');
+    const ipInput = document.getElementById('wifi-printer-ip');
+    const portInput = document.getElementById('wifi-printer-port');
+    const codeInput = document.getElementById('wifi-printer-code');
+    const serialInput = document.getElementById('wifi-printer-serial');
+    const camInput = document.getElementById('wifi-printer-camera-url');
+    const autoAdvInput = document.getElementById('wifi-printer-auto-advance');
+
+    if (idInput) idInput.value = printerId;
+    if (typeSelect) typeSelect.value = cfg.type || 'bambu';
+    if (ipInput) ipInput.value = cfg.ip || '192.168.1.50';
+    if (portInput) portInput.value = cfg.port || (cfg.type === 'bambu' ? 8883 : 8080);
+    if (codeInput) codeInput.value = cfg.code || '';
+    if (serialInput) serialInput.value = cfg.serial || '';
+    if (camInput) camInput.value = cfg.cameraUrl || '';
+    if (autoAdvInput) autoAdvInput.checked = cfg.autoAdvance !== false;
+
+    onPrinterTypeChange(cfg.type || 'bambu');
+    openModal('modal-printer-wifi-config');
+}
+
+function onPrinterTypeChange(type) {
+    const authFields = document.getElementById('wifi-auth-fields');
+    const portInput = document.getElementById('wifi-printer-port');
+
+    if (type === 'bambu') {
+        if (authFields) authFields.style.display = 'grid';
+        if (portInput && (!portInput.value || portInput.value === '8080' || portInput.value === '7125')) portInput.value = '8883';
+    } else if (type === 'stream') {
+        if (authFields) authFields.style.display = 'none';
+        if (portInput && (!portInput.value || portInput.value === '8883')) portInput.value = '8080';
+    } else if (type === 'klipper') {
+        if (authFields) authFields.style.display = 'none';
+        if (portInput && (!portInput.value || portInput.value === '8883')) portInput.value = '7125';
+    } else {
+        if (authFields) authFields.style.display = 'none';
+    }
+}
+
+async function testPrinterWifiConnection() {
+    showToast('Comprobando conexión con puente local (puerto 3005)...', 'info');
+    try {
+        const res = await fetch('http://localhost:3005/api/status', { method: 'GET', cache: 'no-cache' });
+        if (res.ok) {
+            const st = await res.json();
+            showToast(`✅ Puente en línea. Máquina: ${st.printer} | Estado: ${st.state || 'OK'}`, 'success');
+            initPrinterTelemetryStream();
+        } else {
+            showToast('⚠️ El puente respondió con código ' + res.status, 'warning');
+        }
+    } catch (err) {
+        showToast('⚠️ No se pudo conectar a http://localhost:3005. Ejecuta: node bambu-bridge.js', 'warning');
+    }
+}
+
+async function savePrinterWifiConfig() {
+    const printerId = document.getElementById('wifi-printer-id')?.value || 'bambu-a1';
+    const type = document.getElementById('wifi-printer-type')?.value || 'bambu';
+    const ip = document.getElementById('wifi-printer-ip')?.value?.trim() || '192.168.1.50';
+    const port = parseInt(document.getElementById('wifi-printer-port')?.value, 10) || 8883;
+    const code = document.getElementById('wifi-printer-code')?.value?.trim() || '';
+    const serial = document.getElementById('wifi-printer-serial')?.value?.trim() || '';
+    const cameraUrl = document.getElementById('wifi-printer-camera-url')?.value?.trim() || '';
+    const autoAdvance = document.getElementById('wifi-printer-auto-advance')?.checked !== false;
+
+    if (!state.printerTelemetry) state.printerTelemetry = {};
+    
+    const existingName = state.printerTelemetry[printerId]?.name || (printerId.includes('anycubic') ? 'Anycubic S1 Max' : 'Bambu Lab A1');
+    state.printerTelemetry[printerId] = {
+        type,
+        name: existingName,
+        ip,
+        port,
+        code,
+        serial,
+        cameraUrl,
+        autoAdvance,
+        connected: true
+    };
+
+    saveState();
+
+    try {
+        await fetch('http://localhost:3005/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ip,
+                accessCode: code,
+                serial,
+                simulationMode: type === 'sim'
+            })
+        });
+    } catch (e) {
+        // Silencioso si el puente no está corriendo todavía
+    }
+
+    showToast(`✅ Configuración WiFi guardada para ${existingName}`, 'success');
+    closeModal('modal-printer-wifi-config');
+    renderPrinters();
+    initPrinterTelemetryStream();
+}
+
+function openPrinterCameraModal(printerId) {
+    printerId = printerId || 'bambu-a1';
+    const cfg = state.printerTelemetry && state.printerTelemetry[printerId];
+    const printerName = cfg ? cfg.name : (printerId.includes('anycubic') ? 'Anycubic S1 Max' : 'Bambu Lab A1');
+
+    const nameTitle = document.getElementById('cam-modal-printer-name');
+    const streamImg = document.getElementById('cam-modal-stream-img');
+    const placeholder = document.getElementById('cam-modal-placeholder');
+
+    if (nameTitle) nameTitle.textContent = printerName;
+
+    if (cfg && cfg.cameraUrl && cfg.cameraUrl.trim() !== '') {
+        if (streamImg) {
+            streamImg.src = cfg.cameraUrl.trim();
+            streamImg.style.display = 'block';
+        }
+        if (placeholder) placeholder.style.display = 'none';
+    } else {
+        if (streamImg) {
+            streamImg.src = '';
+            streamImg.style.display = 'none';
+        }
+        if (placeholder) placeholder.style.display = 'block';
+    }
+
+    openModal('modal-printer-camera');
+}
+
+function onCameraStreamError() {
+    const streamImg = document.getElementById('cam-modal-stream-img');
+    const placeholder = document.getElementById('cam-modal-placeholder');
+    if (streamImg) streamImg.style.display = 'none';
+    if (placeholder) placeholder.style.display = 'block';
+    showToast('⚠️ No se pudo cargar el stream de vídeo. Verifica la URL de la cámara en red local.', 'warning');
+}
+
+async function sendPrinterLiveControl(action) {
+    if (action === 'stop') {
+        if (!confirm('⚠️ ¿ACTIVAR PARADA DE EMERGENCIA? La impresión se detendrá inmediatamente.')) {
+            return;
+        }
+    }
+
+    try {
+        const res = await fetch('http://localhost:3005/api/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action })
+        });
+        if (res.ok) {
+            const verb = action === 'pause' ? 'Pausada' : (action === 'resume' ? 'Reanudada' : 'Detenida');
+            showToast(`Comando ejecutado: Impresión ${verb}`, 'success');
+        } else {
+            showToast('⚠️ El puente no pudo ejecutar el comando en la máquina.', 'warning');
+        }
+    } catch (err) {
+        showToast('⚠️ Servidor puente no disponible. Asegúrate de ejecutar: node bambu-bridge.js', 'warning');
+    }
+}
+
+function openLiveBridgeGuideModal() {
+    openModal('modal-live-bridge-guide');
+}
+
+// Window bindings para Telemetría y Puente WiFi
+window.initPrinterTelemetryStream = initPrinterTelemetryStream;
+window.updateLiveTelemetryUI = updateLiveTelemetryUI;
+window.openPrinterWifiConfigModal = openPrinterWifiConfigModal;
+window.onPrinterTypeChange = onPrinterTypeChange;
+window.testPrinterWifiConnection = testPrinterWifiConnection;
+window.savePrinterWifiConfig = savePrinterWifiConfig;
+window.openPrinterCameraModal = openPrinterCameraModal;
+window.onCameraStreamError = onCameraStreamError;
+window.sendPrinterLiveControl = sendPrinterLiveControl;
+window.openLiveBridgeGuideModal = openLiveBridgeGuideModal;
