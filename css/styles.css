@@ -4275,5 +4275,74 @@ body.sidebar-open-locked {
   }
 }
 
+/* ==========================================================================
+   Thermal Shipping Label & Electricity Optimizer Styles
+   ========================================================================== */
+.elec-hour-bar {
+  flex: 1;
+  min-width: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 90px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  padding: 4px 2px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
 
+.elec-hour-bar:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
 
+.elec-hour-bar.current {
+  border: 1px solid #00d2ff;
+  box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
+}
+
+.elec-bar-fill {
+  width: 100%;
+  border-radius: 3px;
+  transition: height 0.3s ease;
+}
+
+.elec-bar-fill.valle {
+  background: linear-gradient(180deg, #10b981, #059669);
+}
+
+.elec-bar-fill.llano {
+  background: linear-gradient(180deg, #f59e0b, #d97706);
+}
+
+.elec-bar-fill.punta {
+  background: linear-gradient(180deg, #ef4444, #dc2626);
+}
+
+/* Print thermal label 100x150 mm */
+@media print {
+  body.printing-shipping-label * {
+    visibility: hidden !important;
+  }
+  body.printing-shipping-label #shipping-label-printable,
+  body.printing-shipping-label #shipping-label-printable * {
+    visibility: visible !important;
+  }
+  body.printing-shipping-label #shipping-label-printable {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100mm !important;
+    height: 150mm !important;
+    margin: 0 !important;
+    padding: 6mm !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 2px solid #000 !important;
+    box-shadow: none !important;
+    z-index: 999999 !important;
+    page-break-after: avoid !important;
+  }
+}

@@ -869,12 +869,15 @@ function renderOrdersKanban() {
                     }
                     return '';
                 })()}
+                ${o.plateId ? `<div class="mb-1"><span class="badge" style="background:rgba(0,210,255,0.15); color:#00d2ff; font-size:9.5px;"><i class="fa-solid fa-cubes-stacked mr-1"></i> ${escapeHtml(o.plateId)}</span></div>` : ''}
                 <div class="kanban-card-price">${parseFloat(o.price || 0).toFixed(2)} €</div>
 
                 <div class="kanban-card-actions">
                     <button onclick="editOrder('${o.id}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
                     <button onclick="advanceOrderStatus('${o.id}')" title="Avanzar Estado" class="text-cyan"><i class="fa-solid fa-arrow-right"></i></button>
                     <button onclick="shareClientTracking('${o.id}')" title="Portal Seguimiento Cliente (WhatsApp)" class="text-cyan"><i class="fa-solid fa-satellite-dish"></i></button>
+                    <button onclick="copyCustomerTrackingLink('${o.id}')" title="Copiar Enlace de Seguimiento en Vivo"><i class="fa-solid fa-link text-cyan"></i></button>
+                    <button onclick="openShippingLabelModal('${o.id}')" title="Etiqueta de Envío Térmica (100×150 mm)" class="text-purple"><i class="fa-solid fa-box-open"></i></button>
                     <button onclick="openBudgetModal('${o.id}')" title="Presupuesto Formal (PDF)"><i class="fa-solid fa-file-pdf text-amber"></i></button>
                     <button onclick="openDeliveryNoteModal('${o.id}')" title="Albarán de Entrega (sin precios)"><i class="fa-solid fa-truck-ramp-box text-cyan"></i></button>
                     <button onclick="openWhatsAppStatusModal('${o.id}')" title="Mensajes Rápidos WhatsApp" class="text-emerald"><i class="fa-brands fa-whatsapp"></i></button>
@@ -989,10 +992,27 @@ function updateOrderStatus(id, status) {
             to: status,
             note: 'Estado actualizado'
         });
+
+        // Si pertenece a una bandeja compartida, avanzar también el resto de piezas de la bandeja
+        if (order.plateId) {
+            state.orders.forEach(other => {
+                if (other.id !== id && other.plateId === order.plateId && other.status === oldStatus) {
+                    other.status = status;
+                    if (!other.changelog) other.changelog = [];
+                    other.changelog.push({
+                        date: new Date().toISOString(),
+                        from: oldStatus,
+                        to: status,
+                        note: `Avanzado en conjunto con la bandeja ${order.plateId}`
+                    });
+                }
+            });
+        }
+
         saveState();
         renderOrders();
         renderDashboard();
-        showToast(`Encargo actualizado a "${status}"`, 'info');
+        showToast(`Encargo actualizado a "${status}"${order.plateId ? ' (Bandeja conjunta)' : ''}`, 'info');
         playChime('success');
     }
 }
@@ -7216,3 +7236,431 @@ window.openPrinterCameraModal = openPrinterCameraModal;
 window.onCameraStreamError = onCameraStreamError;
 window.sendPrinterLiveControl = sendPrinterLiveControl;
 window.openLiveBridgeGuideModal = openLiveBridgeGuideModal;
+
+// ==========================================================================
+// 29. Auto-rellenado y Análisis Profundo G-Code / 3MF (Bambu / Orca / Cura)
+// ==========================================================================
+function handleOrderFileAutoFill(input) {
+    if (!input || !input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        const meta = parseGCodeMetadata(text);
+
+        const itemInput = document.getElementById('order-item');
+        const weightInput = document.getElementById('order-weight');
+        const timeInput = document.getElementById('order-time');
+
+        if (itemInput) itemInput.value = cleanName;
+        if (weightInput && meta.weight) weightInput.value = meta.weight;
+        if (timeInput && meta.timeHours) timeInput.value = meta.timeHours;
+
+        if (meta.material && state.filaments && state.filaments.length > 0) {
+            const matchedFilament = state.filaments.find(f => 
+                f.material && f.material.toLowerCase() === meta.material.toLowerCase()
+            );
+            if (matchedFilament) {
+                const hiddenFilId = document.getElementById('order-filament-id');
+                if (hiddenFilId) hiddenFilId.value = matchedFilament.id;
+                renderOrderFilamentPicker();
+            }
+        }
+
+        if (typeof calculateOrderSuggestedPrice === 'function') {
+            calculateOrderSuggestedPrice();
+        }
+
+        showToast(`⚡ G-Code analizado con éxito: ${meta.weight || 0}g, ${meta.timeHours || 0}h ${meta.material ? '(' + meta.material + ')' : ''}`, 'success');
+        if (typeof playChime === 'function') playChime('success');
+    };
+
+    reader.readAsText(file.slice(0, 450000));
+}
+
+// ==========================================================================
+// 30. Enlaces de Seguimiento en Vivo para Clientes (tracking.html)
+// ==========================================================================
+function getCustomerTrackingUrl(orderId) {
+    const loc = window.location;
+    const baseUrl = loc.protocol + '//' + loc.host + loc.pathname.replace(/\/[^/]*$/, '/');
+    return `${baseUrl}tracking.html?id=${encodeURIComponent(orderId)}`;
+}
+
+function copyCustomerTrackingLink(orderId) {
+    const order = (state.orders || []).find(o => o.id === orderId);
+    if (!order) return;
+    const url = getCustomerTrackingUrl(orderId);
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(() => {
+            showToast(`🔗 Enlace de seguimiento copiado al portapapeles. ¡Pégalo en WhatsApp para ${order.client || 'el cliente'}!`, 'success');
+        }).catch(() => {
+            prompt('Copia este enlace para el cliente:', url);
+        });
+    } else {
+        prompt('Copia este enlace para el cliente:', url);
+    }
+}
+
+function sendCustomerTrackingWhatsApp(orderId) {
+    const order = (state.orders || []).find(o => o.id === orderId);
+    if (!order) return;
+    const url = getCustomerTrackingUrl(orderId);
+    const clientName = order.client ? order.client.split(' ')[0] : 'Cliente';
+    const text = encodeURIComponent(
+        `¡Hola ${clientName}! 🚀 Tu encargo de impresión 3D ("${order.title}") ya está registrado en el taller.\n\n` +
+        `Puedes ver el estado, las capas y el progreso en tiempo real desde este enlace:\n${url}\n\n` +
+        `¡Muchas gracias!`
+    );
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+}
+
+// ==========================================================================
+// 31. Optimizador de Tarifas Eléctricas en Horas Valle (PVPC España 2.0TD)
+// ==========================================================================
+function getHourlyElectricityProfile() {
+    const hours = [];
+    for (let h = 0; h < 24; h++) {
+        let type = 'valle';
+        let price = 0.10;
+        if (h >= 0 && h < 8) {
+            type = 'valle';
+            price = 0.09 + (h * 0.003);
+        } else if ((h >= 8 && h < 10) || (h >= 14 && h < 18) || (h >= 22 && h < 24)) {
+            type = 'llano';
+            price = 0.15 + ((h % 4) * 0.005);
+        } else {
+            type = 'punta';
+            price = 0.25 + ((h % 3) * 0.01);
+        }
+        hours.push({ hour: h, type, price: parseFloat(price.toFixed(3)) });
+    }
+    return hours;
+}
+
+function openElectricityOptimizerModal() {
+    const hours = getHourlyElectricityProfile();
+    const currentH = new Date().getHours();
+    const currentPeriod = hours[currentH];
+
+    const currentText = document.getElementById('elec-current-period-text');
+    const currentBadge = document.getElementById('elec-current-badge');
+    const strip = document.getElementById('elec-hours-strip');
+    const rateDisplay = document.getElementById('elec-current-rate-display');
+
+    if (currentText) {
+        currentText.textContent = `${currentH}:00 h — ${currentPeriod.price} €/kWh`;
+    }
+
+    if (currentBadge) {
+        if (currentPeriod.type === 'valle') {
+            currentBadge.style.background = 'rgba(16, 185, 129, 0.2)';
+            currentBadge.style.color = '#10b981';
+            currentBadge.textContent = 'HORA VALLE (Más económica)';
+        } else if (currentPeriod.type === 'llano') {
+            currentBadge.style.background = 'rgba(245, 158, 11, 0.2)';
+            currentBadge.style.color = '#f59e0b';
+            currentBadge.textContent = 'HORA LLANO (Tarifa media)';
+        } else {
+            currentBadge.style.background = 'rgba(239, 68, 68, 0.2)';
+            currentBadge.style.color = '#ef4444';
+            currentBadge.textContent = 'HORA PUNTA (Tarifa alta)';
+        }
+    }
+
+    if (strip) {
+        strip.innerHTML = hours.map(item => {
+            const isCurrent = item.hour === currentH;
+            const heightPct = Math.round((item.price / 0.30) * 100);
+            return `
+                <div class="elec-hour-bar ${isCurrent ? 'current' : ''}" onclick="selectTariffHour(${item.hour}, ${item.price})" title="${item.hour}:00h - ${item.price} €/kWh (${item.type.toUpperCase()})">
+                    <span style="font-size: 8px; color: ${isCurrent ? '#00d2ff' : '#94a3b8'}; margin-bottom: 2px;">${item.price.toFixed(2)}</span>
+                    <div class="elec-bar-fill ${item.type}" style="height: ${heightPct}%;"></div>
+                    <span style="font-size: 9px; font-weight: ${isCurrent ? '800' : '400'}; color: ${isCurrent ? '#fff' : '#64748b'}; margin-top: 3px;">${item.hour}h</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    const currentRate = state.electricityCost || 0.18;
+    if (rateDisplay) rateDisplay.textContent = `${currentRate.toFixed(2)} €/kWh`;
+
+    calculateElectricitySavings();
+    openModal('modal-electricity-optimizer');
+}
+
+function calculateElectricitySavings() {
+    const hours = parseFloat(document.getElementById('elec-sim-hours')?.value) || 6;
+    const powerWatts = parseFloat(document.getElementById('elec-sim-printer')?.value) || 220;
+
+    const totalKWh = (hours * powerWatts) / 1000;
+    const costPunta = totalKWh * 0.26;
+    const costValle = totalKWh * 0.10;
+    const saving = Math.max(0, costPunta - costValle);
+
+    const resEl = document.getElementById('elec-sim-result');
+    if (resEl) {
+        resEl.textContent = `+${saving.toFixed(2)} € ahorro/pieza`;
+    }
+}
+
+function applyOptimalValleyTariff() {
+    state.electricityCost = 0.11;
+    saveState();
+    const tariffHeader = document.getElementById('header-tariff-val');
+    if (tariffHeader) tariffHeader.textContent = '0.11 €/kWh';
+    const rateDisplay = document.getElementById('elec-current-rate-display');
+    if (rateDisplay) rateDisplay.textContent = '0.11 €/kWh';
+    showToast('✅ Tarifa Horas Valle (0.11 €/kWh) aplicada a la calculadora', 'success');
+}
+
+function selectTariffHour(h, price) {
+    showToast(`Hora seleccionada: ${h}:00 h (${price} €/kWh)`, 'info');
+}
+
+// ==========================================================================
+// 32. Generador de Etiquetas Térmicas de Envío (100×150 mm)
+// ==========================================================================
+let currentShippingOrderId = null;
+
+function generateBarcodeSVG(text) {
+    text = (text || 'ORD-000000').toUpperCase();
+    let x = 15;
+    let rects = '';
+    for (let i = 0; i < text.length; i++) {
+        const code = text.charCodeAt(i);
+        const w1 = ((code % 3) + 1) * 2;
+        const w2 = (((code >> 2) % 3) + 1) * 2;
+        rects += `<rect x="${x}" y="4" width="${w1}" height="42" fill="#000" />`;
+        x += w1 + 3;
+        rects += `<rect x="${x}" y="4" width="${w2}" height="42" fill="#000" />`;
+        x += w2 + 3;
+    }
+    return `<rect x="0" y="0" width="${x + 20}" height="50" fill="#fff" />${rects}`;
+}
+
+function openShippingLabelModal(orderId) {
+    currentShippingOrderId = orderId;
+    const order = (state.orders || []).find(o => o.id === orderId);
+    if (!order) return;
+
+    const carrierSelect = document.getElementById('ship-carrier-select');
+    const addressInput = document.getElementById('ship-dest-address');
+
+    if (carrierSelect) carrierSelect.value = 'CORREOS';
+    if (addressInput) addressInput.value = order.shippingAddress || (order.client ? `C/ Principal, 10 • ${order.client}` : 'C/ Mayor, 12, 1º B');
+
+    updateShippingLabelPreview();
+    openModal('modal-shipping-label');
+}
+
+function updateShippingLabelCarrier(carrier) {
+    const lblCarrier = document.getElementById('ship-lbl-carrier');
+    if (lblCarrier) lblCarrier.textContent = carrier || 'CORREOS';
+}
+
+function updateShippingLabelPreview() {
+    const order = (state.orders || []).find(o => o.id === currentShippingOrderId);
+    if (!order) return;
+
+    const clientName = document.getElementById('ship-lbl-client-name');
+    const address = document.getElementById('ship-lbl-address');
+    const phone = document.getElementById('ship-lbl-phone');
+    const piece = document.getElementById('ship-lbl-piece');
+    const weight = document.getElementById('ship-lbl-weight');
+    const ref = document.getElementById('ship-lbl-ref');
+    const barcodeSvg = document.getElementById('ship-lbl-barcode');
+
+    const addressText = document.getElementById('ship-dest-address')?.value || 'Dirección de entrega';
+
+    if (clientName) clientName.textContent = order.client || 'Cliente Particular';
+    if (address) address.innerHTML = escapeHtml(addressText).replace(/\n/g, '<br>');
+    if (phone) phone.textContent = `Ref: ${order.id.slice(0, 8).toUpperCase()}`;
+    if (piece) piece.textContent = order.title || 'Pieza 3D';
+    if (weight) weight.textContent = `${order.weight || 150}g`;
+    if (ref) ref.textContent = `*${order.id.slice(0, 10).toUpperCase()}*`;
+
+    if (barcodeSvg) {
+        barcodeSvg.innerHTML = generateBarcodeSVG(order.id.slice(0, 10));
+    }
+}
+
+function printShippingLabel() {
+    document.body.classList.add('printing-shipping-label');
+    window.print();
+    setTimeout(() => {
+        document.body.classList.remove('printing-shipping-label');
+    }, 1000);
+}
+
+// ==========================================================================
+// 33. Planificador de Bandeja Compartida (Multi-pedido en 1 impresión)
+// ==========================================================================
+let batchSelectedOrderIds = new Set();
+
+function openBatchPlateModal() {
+    batchSelectedOrderIds.clear();
+
+    const printerSelect = document.getElementById('batch-plate-printer');
+    if (printerSelect && state.printers) {
+        printerSelect.innerHTML = state.printers.map(p => 
+            `<option value="${p.id}" ${p.name.includes('Bambu') ? 'selected' : ''}>${escapeHtml(p.name)} (${p.tech || 'FDM'})</option>`
+        ).join('');
+    }
+
+    const nameInput = document.getElementById('batch-plate-name');
+    if (nameInput) {
+        const num = Math.floor(100 + Math.random() * 900);
+        nameInput.value = `Bandeja #${num}`;
+    }
+
+    renderBatchOrdersTable();
+    recalcBatchPlate();
+    openModal('modal-batch-plate');
+}
+
+function renderBatchOrdersTable() {
+    const tbody = document.getElementById('batch-orders-table-body');
+    if (!tbody) return;
+
+    const candidateOrders = (state.orders || []).filter(o => 
+        o.status === 'En Cola' || o.status === 'Presupuesto'
+    );
+
+    if (candidateOrders.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted p-3">No hay pedidos pendientes en "En Cola" o "Presupuesto".</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = candidateOrders.map(o => {
+        const isChecked = batchSelectedOrderIds.has(o.id);
+        const fil = (state.filaments || []).find(f => f.id === o.filamentId);
+        const filName = fil ? `${fil.material} ${fil.colorName}` : 'PLA';
+
+        return `
+            <tr>
+                <td style="text-align: center;">
+                    <input type="checkbox" value="${o.id}" ${isChecked ? 'checked' : ''} onchange="toggleBatchOrderSelect('${o.id}', this.checked)">
+                </td>
+                <td>
+                    <strong class="text-white">${escapeHtml(o.title)}</strong><br>
+                    <span class="text-xs text-muted">${escapeHtml(o.client || 'Cliente')}</span>
+                </td>
+                <td><span class="badge bg-secondary text-xs">${filName}</span></td>
+                <td class="font-mono text-cyan">${o.weight || 0}g</td>
+                <td class="font-mono text-emerald">${parseFloat(o.price || 0).toFixed(2)}€</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function toggleBatchOrderSelect(orderId, checked) {
+    if (checked) {
+        batchSelectedOrderIds.add(orderId);
+    } else {
+        batchSelectedOrderIds.delete(orderId);
+    }
+    recalcBatchPlate();
+}
+
+function toggleSelectAllBatchOrders(checked) {
+    const candidateOrders = (state.orders || []).filter(o => 
+        o.status === 'En Cola' || o.status === 'Presupuesto'
+    );
+    if (checked) {
+        candidateOrders.forEach(o => batchSelectedOrderIds.add(o.id));
+    } else {
+        batchSelectedOrderIds.clear();
+    }
+    renderBatchOrdersTable();
+    recalcBatchPlate();
+}
+
+function recalcBatchPlate() {
+    const selected = (state.orders || []).filter(o => batchSelectedOrderIds.has(o.id));
+    
+    let totalWeight = 0;
+    let totalRev = 0;
+    let totalTime = 0;
+
+    selected.forEach(o => {
+        totalWeight += parseFloat(o.weight || 0);
+        totalRev += parseFloat(o.price || 0);
+        totalTime += parseFloat(o.time || 2);
+    });
+
+    const plateOptimizedTime = totalTime > 0 ? parseFloat((totalTime * 0.82).toFixed(1)) : 2.5;
+
+    const countDisplay = document.getElementById('batch-count-display');
+    const weightDisplay = document.getElementById('batch-weight-display');
+    const revDisplay = document.getElementById('batch-revenue-display');
+    const timeInput = document.getElementById('batch-plate-time');
+
+    if (countDisplay) countDisplay.textContent = `${selected.length} piezas`;
+    if (weightDisplay) weightDisplay.textContent = `${Math.round(totalWeight)} g`;
+    if (revDisplay) revDisplay.textContent = `${totalRev.toFixed(2)} €`;
+    if (timeInput && selected.length > 0) timeInput.value = plateOptimizedTime;
+}
+
+function launchBatchPlate() {
+    if (batchSelectedOrderIds.size === 0) {
+        showToast('Por favor selecciona al menos un pedido para la bandeja', 'warning');
+        return;
+    }
+
+    const batchName = document.getElementById('batch-plate-name')?.value?.trim() || 'Bandeja Compartida';
+    const printerId = document.getElementById('batch-plate-printer')?.value;
+    const assignedPrinter = (state.printers || []).find(p => p.id === printerId);
+
+    let updatedCount = 0;
+    state.orders.forEach(o => {
+        if (batchSelectedOrderIds.has(o.id)) {
+            const oldStatus = o.status;
+            o.status = 'Imprimiendo';
+            o.plateId = batchName;
+            if (printerId) o.printerId = printerId;
+            if (!o.changelog) o.changelog = [];
+            o.changelog.unshift({
+                date: new Date().toISOString(),
+                from: oldStatus,
+                to: 'Imprimiendo',
+                note: `Lanzado a fabricación en ${batchName} (${assignedPrinter ? assignedPrinter.name : 'Impresora'})`
+            });
+            updatedCount++;
+        }
+    });
+
+    saveState();
+    renderOrders();
+    renderDashboard();
+    closeModal('modal-batch-plate');
+
+    showToast(`🚀 ¡Bandeja "${batchName}" lanzada con éxito! ${updatedCount} pedidos en impresión conjunta.`, 'success');
+    if (typeof triggerConfetti === 'function') triggerConfetti();
+    if (typeof playSoundEffect === 'function') playSoundEffect('success');
+}
+
+// Window bindings para Nuevas Mejoras (Features 1-5)
+window.handleOrderFileAutoFill = handleOrderFileAutoFill;
+window.getCustomerTrackingUrl = getCustomerTrackingUrl;
+window.copyCustomerTrackingLink = copyCustomerTrackingLink;
+window.sendCustomerTrackingWhatsApp = sendCustomerTrackingWhatsApp;
+window.getHourlyElectricityProfile = getHourlyElectricityProfile;
+window.openElectricityOptimizerModal = openElectricityOptimizerModal;
+window.calculateElectricitySavings = calculateElectricitySavings;
+window.applyOptimalValleyTariff = applyOptimalValleyTariff;
+window.selectTariffHour = selectTariffHour;
+window.generateBarcodeSVG = generateBarcodeSVG;
+window.openShippingLabelModal = openShippingLabelModal;
+window.updateShippingLabelCarrier = updateShippingLabelCarrier;
+window.updateShippingLabelPreview = updateShippingLabelPreview;
+window.printShippingLabel = printShippingLabel;
+window.openBatchPlateModal = openBatchPlateModal;
+window.renderBatchOrdersTable = renderBatchOrdersTable;
+window.toggleBatchOrderSelect = toggleBatchOrderSelect;
+window.toggleSelectAllBatchOrders = toggleSelectAllBatchOrders;
+window.recalcBatchPlate = recalcBatchPlate;
+window.launchBatchPlate = launchBatchPlate;

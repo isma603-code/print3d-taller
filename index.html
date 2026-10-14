@@ -174,8 +174,8 @@
           <button class="btn-outline btn-sm d-none d-lg-inline-flex" id="btn-mode-toggle" onclick="toggleWorkshopMode()" title="Cambiar entre modo taller fácil o modo avanzado" style="border-color: rgba(0, 210, 255, 0.4); color: var(--primary);">
             <i class="fa-solid fa-wand-magic-sparkles"></i> <span id="workshop-mode-text">Modo Taller</span>
           </button>
-          <button class="btn-outline btn-sm d-none d-lg-inline-flex" onclick="openElectricityConfigModal()" title="Configurar coste de la electricidad (€/kWh)">
-            <i class="fa-solid fa-bolt text-amber"></i> <span id="header-tariff-val">0.18 €/kWh</span>
+          <button class="btn-outline btn-sm d-none d-lg-inline-flex" onclick="openElectricityOptimizerModal()" title="Optimizador de Tarifas Eléctricas en Horas Valle (PVPC)">
+            <i class="fa-solid fa-bolt text-amber"></i> <span id="header-tariff-val">Tarifa Valle</span>
           </button>
           <button class="btn-outline btn-sm d-none d-lg-inline-flex" onclick="openPaymentConfigModal()" title="Configurar enlaces directos de cobro (Bizum / Revolut / PayPal)">
             <i class="fa-solid fa-credit-card text-emerald"></i> <span>Cobro Rápido</span>
@@ -438,7 +438,7 @@
                 <div style="display: flex; gap: 10px; align-items: center;">
                   <input type="text" id="filter-orders-search" class="form-control" placeholder="Buscar cliente o pieza..." style="width: 220px;">
                   <button class="btn-outline btn-sm" onclick="toggleOrdersView('kanban')"><i class="fa-solid fa-grip"></i></button>
-                  <button class="btn-outline btn-sm" onclick="toggleOrdersView('list')"><i class="fa-solid fa-list"></i></button>
+                  <button class="btn-outline btn-sm text-cyan" onclick="openBatchPlateModal()" title="Planificador de Bandeja Compartida Multi-pedido"><i class="fa-solid fa-cubes-stacked mr-1"></i> Bandeja</button>
                   <button class="btn-success btn-sm" onclick="openOrderModalWithDefaults()"><i class="fa-solid fa-plus"></i> Nuevo</button>
                 </div>
               </div>
@@ -1410,6 +1410,13 @@
               </div>
             </div>
             <div id="order-tips-banner" class="mt-2 p-2 rounded" style="display:none; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.35); font-size:12px; color:#fbbf24;"></div>
+            <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-secondary flex-wrap gap-2">
+              <span class="text-xs text-muted">¿Laminaste en Bambu Studio / Orca / Cura?</span>
+              <label class="btn-outline btn-xs text-cyan cursor-pointer m-0" title="Extrae gramos, tiempo y nombre en 1 segundo">
+                <i class="fa-solid fa-file-code mr-1"></i> Auto-rellenar con G-Code / 3MF
+                <input type="file" id="order-autofill-file" accept=".gcode,.3mf,.txt" style="display:none;" onchange="handleOrderFileAutoFill(this)">
+              </label>
+            </div>
           </div>
 
           <!-- Paso 2: Material, Peso y Precio -->
@@ -3505,6 +3512,206 @@
       <div class="modal-footer d-flex justify-content-between">
         <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-live-bridge-guide')">Entendido</button>
         <button type="button" class="btn-primary btn-sm" onclick="closeModal('modal-live-bridge-guide'); openPrinterWifiConfigModal('bambu-a1');"><i class="fa-solid fa-sliders mr-1"></i> Configurar Ahora</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 28: Optimizador de Tarifas Eléctricas en Horas Valle (PVPC España) -->
+  <div id="modal-electricity-optimizer" class="modal-overlay">
+    <div class="modal-content" style="max-width: 680px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-bolt text-amber mr-1"></i> Optimizador de Tarifas Eléctricas en Horas Valle</h4>
+        <button class="modal-close" onclick="closeModal('modal-electricity-optimizer')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="p-3 rounded mb-3" style="background: rgba(245, 158, 11, 0.06); border: 1px solid rgba(245, 158, 11, 0.3);">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <span class="text-xs text-muted d-block">Periodo tarifario en este momento:</span>
+              <strong class="text-base text-white" id="elec-current-period-text">Calculando tarifa actual...</strong>
+            </div>
+            <span class="badge" id="elec-current-badge" style="font-size: 12px; padding: 6px 12px; background: rgba(16, 185, 129, 0.2); color: #10b981;">HORA VALLE (Económica)</span>
+          </div>
+        </div>
+
+        <h5 class="text-xs fw-bold text-white mb-2"><i class="fa-solid fa-clock mr-1 text-cyan"></i> Mapa de Precios 24 Horas (España PVPC / 2.0TD):</h5>
+        <div id="elec-hours-strip" class="d-flex gap-1 mb-3 p-2 rounded bg-dark border border-secondary" style="overflow-x: auto;">
+          <!-- 24 bar items rendered by JS -->
+        </div>
+
+        <div class="p-3 rounded bg-dark border border-secondary mb-3">
+          <h5 class="text-xs fw-bold text-white mb-2"><i class="fa-solid fa-calculator text-emerald mr-1"></i> Simulador de Ahorro para tu Bambu Lab A1 / Anycubic:</h5>
+          <div class="grid-3 mb-2" style="font-size: 12px;">
+            <div>
+              <label class="form-label text-xs text-muted">Duración pieza (horas):</label>
+              <input type="number" id="elec-sim-hours" class="form-control text-xs font-mono" value="6" min="0.5" step="0.5" oninput="calculateElectricitySavings()">
+            </div>
+            <div>
+              <label class="form-label text-xs text-muted">Impresora / Potencia:</label>
+              <select id="elec-sim-printer" class="form-select text-xs" onchange="calculateElectricitySavings()">
+                <option value="220" selected>Bambu Lab A1 (~220W)</option>
+                <option value="300">Anycubic S1 Max (~300W)</option>
+                <option value="350">Bambu X1-Carbon (~350W)</option>
+                <option value="150">Ender 3 / Básica (~150W)</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label text-xs text-muted">Ahorro Estimado:</label>
+              <div class="p-2 rounded font-mono text-emerald fw-bold text-sm bg-secondary" id="elec-sim-result">~0.00 €</div>
+            </div>
+          </div>
+          <div class="text-xs text-dim" id="elec-sim-advice">
+            💡 Programar la impresión para que arranque a las 00:00 (Hora Valle) reduce un 55% el coste de energía frente a imprimir a las 11:00 (Hora Punta).
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 p-2 rounded" style="background: rgba(0, 210, 255, 0.05); border: 1px dashed rgba(0, 210, 255, 0.25);">
+          <span class="text-xs text-white">Tarifa media guardada en la calculadora: <strong class="text-cyan font-mono" id="elec-current-rate-display">0.18 €/kWh</strong></span>
+          <button type="button" class="btn-outline btn-xs text-cyan" onclick="applyOptimalValleyTariff()"><i class="fa-solid fa-check mr-1"></i> Aplicar Tarifa Valle (0.11 €/kWh)</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-electricity-optimizer')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 29: Generador de Etiqueta de Envío para Paquetería (Térmica 100x150 mm) -->
+  <div id="modal-shipping-label" class="modal-overlay">
+    <div class="modal-content" style="max-width: 640px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-box-open text-cyan mr-1"></i> Etiqueta de Envío Térmica (100×150 mm)</h4>
+        <button class="modal-close" onclick="closeModal('modal-shipping-label')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="grid-2 mb-3 no-print">
+          <div class="form-group">
+            <label class="form-label text-xs">Empresa de Transporte / Courier:</label>
+            <select id="ship-carrier-select" class="form-select text-xs" onchange="updateShippingLabelCarrier(this.value)">
+              <option value="CORREOS">Correos España (Paq Estándar)</option>
+              <option value="GLS">GLS Parcel España</option>
+              <option value="MRW">MRW Urgente</option>
+              <option value="SEUR">SEUR 24h</option>
+              <option value="CTT">CTT Express</option>
+              <option value="ENTREGA_MANO">Entrega en Mano / Taller</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label text-xs">Dirección de Destino:</label>
+            <input type="text" id="ship-dest-address" class="form-control text-xs" placeholder="Calle, Número, Piso, Ciudad, CP" oninput="updateShippingLabelPreview()">
+          </div>
+        </div>
+
+        <div id="shipping-label-printable" class="shipping-label-card" style="background: #ffffff; color: #000000; border-radius: 6px; padding: 18px; font-family: 'Outfit', sans-serif; border: 2px solid #000; max-width: 420px; margin: 0 auto; box-shadow: 0 4px 14px rgba(0,0,0,0.4);">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px;">
+            <div style="font-size: 20px; font-weight: 900; letter-spacing: -0.5px;" id="ship-lbl-carrier">CORREOS</div>
+            <div style="background: #000; color: #fff; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 3px; text-transform: uppercase;">
+              PAQUETE ESTÁNDAR
+            </div>
+          </div>
+
+          <div style="border-bottom: 1px dashed #666; padding-bottom: 8px; margin-bottom: 10px; font-size: 11px; line-height: 1.3;">
+            <strong style="text-transform: uppercase; font-size: 10px; color: #444;">REMITENTE:</strong><br>
+            <strong id="ship-lbl-sender-name">Print3D Studio — Taller de Fabricación</strong><br>
+            <span id="ship-lbl-sender-details">Polígono / Taller Central • Tel. 600 000 000</span>
+          </div>
+
+          <div style="border: 2px solid #000; padding: 10px; border-radius: 4px; margin-bottom: 12px; background: #fafafa;">
+            <strong style="text-transform: uppercase; font-size: 10px; color: #444; display: block; margin-bottom: 2px;">DESTINATARIO:</strong>
+            <div style="font-size: 17px; font-weight: 800; line-height: 1.2;" id="ship-lbl-client-name">Cliente</div>
+            <div style="font-size: 12px; font-weight: 600; margin-top: 4px;" id="ship-lbl-address">Calle Mayor, 12, 1º B<br>28001 Madrid</div>
+            <div style="font-size: 12px; margin-top: 4px; font-family: 'JetBrains Mono', monospace;" id="ship-lbl-phone">Tel: 612 345 678</div>
+          </div>
+
+          <div style="text-align: center; border-bottom: 1px dashed #666; padding-bottom: 10px; margin-bottom: 10px;">
+            <svg id="ship-lbl-barcode" style="width: 100%; height: 50px;"></svg>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 2px;" id="ship-lbl-ref">ORD-00000000</div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+            <div>
+              <strong>Pieza:</strong> <span id="ship-lbl-piece">Soporte 3D</span><br>
+              <strong>Peso:</strong> <span id="ship-lbl-weight">120g</span>
+            </div>
+            <div style="border: 2px solid #d97706; color: #b45309; padding: 4px 8px; border-radius: 4px; font-weight: 800; text-align: center; font-size: 10px;">
+              ⚠️ FRÁGIL<br>PIEZA 3D
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex justify-content-between">
+        <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-shipping-label')">Cerrar</button>
+        <button type="button" class="btn-primary btn-sm" onclick="printShippingLabel()"><i class="fa-solid fa-print mr-1"></i> Imprimir Etiqueta Térmica</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 30: Planificador de Bandeja Compartida (Multi-pedido en 1 impresión) -->
+  <div id="modal-batch-plate" class="modal-overlay">
+    <div class="modal-content" style="max-width: 680px;">
+      <div class="modal-header">
+        <h4 class="modal-title"><i class="fa-solid fa-cubes-stacked text-cyan mr-1"></i> Planificador de Bandeja Compartida (Multi-pedido)</h4>
+        <button class="modal-close" onclick="closeModal('modal-batch-plate')"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs text-muted mb-3">
+          Selecciona varios encargos pendientes del mismo filamento para imprimirlos juntos en la cama de tu <strong>Bambu Lab A1 (256×256 mm)</strong> o <strong>Anycubic S1 Max</strong>. Al terminar la máquina física, todos los pedidos se marcarán como "Listo" de golpe.
+        </p>
+
+        <div class="grid-2 mb-3">
+          <div class="form-group">
+            <label class="form-label text-xs">Impresora de Destino:</label>
+            <select id="batch-plate-printer" class="form-select text-xs" onchange="recalcBatchPlate()">
+              <!-- Injected dynamically from state.printers -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label text-xs">Nombre o Lote de la Bandeja:</label>
+            <input type="text" id="batch-plate-name" class="form-control text-xs font-mono" placeholder="Ej. Bandeja PLA Negro #01">
+          </div>
+        </div>
+
+        <div class="table-responsive mb-3" style="max-height: 220px; overflow-y: auto;">
+          <table class="custom-table" style="font-size: 12px;">
+            <thead>
+              <tr>
+                <th style="width: 36px; text-align: center;"><input type="checkbox" id="batch-select-all" onchange="toggleSelectAllBatchOrders(this.checked)"></th>
+                <th>Cliente / Pieza</th>
+                <th>Filamento</th>
+                <th>Peso</th>
+                <th>Precio</th>
+              </tr>
+            </thead>
+            <tbody id="batch-orders-table-body">
+              <!-- Rendered by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="p-3 rounded bg-dark border border-secondary">
+          <div class="grid-4 text-center" style="font-size: 12px;">
+            <div>
+              <span class="text-xs text-muted d-block">Pedidos Unidos</span>
+              <strong class="text-cyan font-mono" id="batch-count-display">0 piezas</strong>
+            </div>
+            <div>
+              <span class="text-xs text-muted d-block">Peso Total Bandeja</span>
+              <strong class="text-amber font-mono" id="batch-weight-display">0 g</strong>
+            </div>
+            <div>
+              <span class="text-xs text-muted d-block">Facturación Total</span>
+              <strong class="text-emerald font-mono" id="batch-revenue-display">0.00 €</strong>
+            </div>
+            <div>
+              <span class="text-xs text-muted d-block">Tiempo Total Ajustado</span>
+              <input type="number" id="batch-plate-time" class="form-control text-xs text-center font-mono py-1" value="3.5" min="0.5" step="0.5" style="max-width: 90px; margin: 2px auto 0;">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex justify-content-between">
+        <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-batch-plate')">Cancelar</button>
+        <button type="button" class="btn-success btn-sm" onclick="launchBatchPlate()"><i class="fa-solid fa-play mr-1"></i> Lanzar Bandeja a Fabricación</button>
       </div>
     </div>
   </div>
