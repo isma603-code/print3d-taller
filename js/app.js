@@ -869,6 +869,18 @@ function renderOrdersKanban() {
                     }
                     return '';
                 })()}
+                ${o.status === 'Imprimiendo' ? `
+                <div class="live-printing-anim-banner mb-2 p-2 rounded" style="background: linear-gradient(90deg, rgba(0,210,255,0.06), rgba(16,185,129,0.06)); border: 1px solid rgba(0,210,255,0.25);">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-xs fw-bold text-cyan"><span class="live-dot-pulse"></span> IMPRIMIENDO</span>
+                        <span class="text-xs font-mono text-emerald fw-bold">${o.time ? '~' + o.time + 'h' : 'En máquina'}</span>
+                    </div>
+                    <div class="nozzle-anim-track">
+                        <div class="nozzle-anim-line"></div>
+                        <div class="nozzle-anim-head"><i class="fa-solid fa-crosshairs"></i></div>
+                    </div>
+                </div>
+                ` : ''}
                 ${o.plateId ? `<div class="mb-1"><span class="badge" style="background:rgba(0,210,255,0.15); color:#00d2ff; font-size:9.5px;"><i class="fa-solid fa-cubes-stacked mr-1"></i> ${escapeHtml(o.plateId)}</span></div>` : ''}
                 <div class="kanban-card-price">${parseFloat(o.price || 0).toFixed(2)} €</div>
 
@@ -1757,13 +1769,20 @@ function renderFilaments() {
 
         const div = document.createElement('div');
         div.className = 'filament-card';
+        const spoolRadius = 26 + Math.round((percentage / 100) * 20);
         div.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <div class="color-swatch" style="background-color: ${f.hex}; border: 1px solid rgba(255,255,255,0.2);"></div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 12px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div class="realistic-spool-graphic" title="Nivel restante: ${percentage}% (${f.currentWeight}g)">
+                        <div class="spool-filament-winding" style="width: ${spoolRadius}px; height: ${spoolRadius}px; background: radial-gradient(circle, ${f.hex} 40%, rgba(0,0,0,0.6) 100%);"></div>
+                        <div class="spool-center-hole"></div>
+                    </div>
                     <div>
-                        <h3 style="margin:0; font-size:15px;">${escapeHtml(f.brand)} ${escapeHtml(f.material)}</h3>
-                        <div class="text-xs text-muted">${escapeHtml(f.colorName)}</div>
+                        <h3 style="margin:0; font-size:15px; font-weight:700;">${escapeHtml(f.brand)} ${escapeHtml(f.material)}</h3>
+                        <div class="text-xs text-muted d-flex align-items-center gap-1 mt-1">
+                            <span class="color-swatch" style="width:10px; height:10px; background-color: ${f.hex}; border: 1px solid rgba(255,255,255,0.4);"></span>
+                            <span>${escapeHtml(f.colorName)}</span>
+                        </div>
                     </div>
                 </div>
                 ${isLow ? '<span class="badge bg-danger">⚠️ Stock Bajo</span>' : ''}
@@ -3416,6 +3435,39 @@ function init3DViewer() {
     const dirLight = new THREE.DirectionalLight(0x00d2ff, 1.2);
     dirLight.position.set(5, 8, 5);
     scene.add(dirLight);
+
+    const rimLight = new THREE.DirectionalLight(0xa855f7, 0.8);
+    rimLight.position.set(-5, 4, -5);
+    scene.add(rimLight);
+
+    // Realistic Build Plate (Bambu / Anycubic PEI Plate 256x256mm style)
+    const plateGroup = new THREE.Group();
+    const plateGeo = new THREE.BoxGeometry(3.6, 0.05, 3.6);
+    const plateMat = new THREE.MeshStandardMaterial({
+        color: 0x181c28,
+        roughness: 0.85,
+        metalness: 0.2
+    });
+    const plateMesh = new THREE.Mesh(plateGeo, plateMat);
+    plateMesh.position.y = -0.92;
+    plateGroup.add(plateMesh);
+
+    const grid = new THREE.GridHelper(3.6, 18, 0x00d2ff, 0x273656);
+    grid.position.y = -0.89;
+    plateGroup.add(grid);
+
+    const shadowGeo = new THREE.CircleGeometry(1.1, 32);
+    const shadowMat = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.35
+    });
+    const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+    shadowMesh.rotation.x = -Math.PI / 2;
+    shadowMesh.position.y = -0.88;
+    plateGroup.add(shadowMesh);
+
+    scene.add(plateGroup);
 
     load3DGeometry('functional');
 
@@ -7664,3 +7716,153 @@ window.toggleBatchOrderSelect = toggleBatchOrderSelect;
 window.toggleSelectAllBatchOrders = toggleSelectAllBatchOrders;
 window.recalcBatchPlate = recalcBatchPlate;
 window.launchBatchPlate = launchBatchPlate;
+
+// ==========================================================================
+// 34. Suite Visual: Temas del Taller, 3D Card Tilt & Monitor TV (Kiosk)
+// ==========================================================================
+
+const WORKSHOP_THEMES = [
+    { id: 'default', name: 'Studio Dark', icon: 'fa-moon' },
+    { id: 'bambu', name: 'Bambu Green', icon: 'fa-leaf' },
+    { id: 'cyberpunk', name: 'Cyberpunk OLED', icon: 'fa-bolt' },
+    { id: 'minimal', name: 'Titanium Slate', icon: 'fa-cube' }
+];
+
+let currentThemeIdx = 0;
+
+function initWorkshopTheme() {
+    const saved = localStorage.getItem('PRINT3D_THEME_PALETTE') || 'default';
+    const foundIdx = WORKSHOP_THEMES.findIndex(t => t.id === saved);
+    if (foundIdx !== -1) currentThemeIdx = foundIdx;
+    applyThemeById(WORKSHOP_THEMES[currentThemeIdx].id);
+}
+
+function cycleWorkshopThemes() {
+    currentThemeIdx = (currentThemeIdx + 1) % WORKSHOP_THEMES.length;
+    const theme = WORKSHOP_THEMES[currentThemeIdx];
+    applyThemeById(theme.id);
+    localStorage.setItem('PRINT3D_THEME_PALETTE', theme.id);
+
+    const btnText = document.getElementById('theme-name-text');
+    if (btnText) btnText.textContent = theme.name;
+    showToast(`🎨 Tema visual activado: ${theme.name}`, 'info');
+}
+
+function applyThemeById(themeId) {
+    if (themeId === 'default') {
+        document.body.removeAttribute('data-theme');
+        document.body.classList.remove('light-mode');
+    } else if (themeId === 'light') {
+        document.body.removeAttribute('data-theme');
+        document.body.classList.add('light-mode');
+    } else {
+        document.body.setAttribute('data-theme', themeId);
+        document.body.classList.remove('light-mode');
+    }
+    const btnText = document.getElementById('theme-name-text');
+    const theme = WORKSHOP_THEMES.find(t => t.id === themeId);
+    if (btnText && theme) btnText.textContent = theme.name;
+}
+
+// 3D Tilt Effect on Cards on Mousemove
+function initCardTiltEffect() {
+    const cards = document.querySelectorAll('.kanban-card, .printer-card, .filament-card, .kpi-card, .catalog-card');
+    cards.forEach(card => {
+        if (card._hasTiltListener) return;
+        card._hasTiltListener = true;
+
+        card.addEventListener('mousemove', (e) => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const rotX = ((y / rect.height) - 0.5) * -8;
+            const rotY = ((x / rect.width) - 0.5) * 8;
+            card.style.transform = `perspective(800px) rotateX(${rotX.toFixed(2)}deg) rotateY(${rotY.toFixed(2)}deg) translateY(-2px)`;
+        });
+
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = '';
+        });
+    });
+}
+
+// Fullscreen Kiosk Mode (Monitor TV del Taller)
+let kioskInterval = null;
+
+function openWorkshopKioskModal() {
+    updateKioskClock();
+    if (kioskInterval) clearInterval(kioskInterval);
+    kioskInterval = setInterval(updateKioskClock, 1000);
+
+    renderKioskOrders();
+    openModal('modal-workshop-kiosk');
+}
+
+function updateKioskClock() {
+    const clockEl = document.getElementById('kiosk-digital-clock');
+    const dateEl = document.getElementById('kiosk-date-display');
+    const now = new Date();
+
+    if (clockEl) {
+        clockEl.textContent = now.toLocaleTimeString('es-ES', { hour12: false });
+    }
+    if (dateEl) {
+        dateEl.textContent = now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    }
+}
+
+function renderKioskOrders() {
+    const grid = document.getElementById('kiosk-orders-grid');
+    const summary = document.getElementById('kiosk-orders-summary');
+    if (!grid) return;
+
+    const activeOrders = (state.orders || []).filter(o => o.status === 'Imprimiendo' || o.status === 'En Cola');
+    if (summary) summary.textContent = `${activeOrders.length} encargos activos hoy`;
+
+    if (activeOrders.length === 0) {
+        grid.innerHTML = '<div class="text-xs text-muted p-3 text-center" style="grid-column: 1 / -1;">No hay encargos activos en este momento.</div>';
+        return;
+    }
+
+    grid.innerHTML = activeOrders.map(o => `
+        <div class="p-2 rounded bg-dark border border-secondary" style="font-size: 11.5px;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <strong class="text-white">${escapeHtml(o.title)}</strong>
+                <span class="badge ${o.status === 'Imprimiendo' ? 'bg-primary' : 'bg-secondary'}" style="font-size: 9.5px;">${o.status}</span>
+            </div>
+            <div class="d-flex justify-content-between text-muted text-xs">
+                <span>${escapeHtml(o.client || 'Cliente')}</span>
+                <span class="text-emerald fw-bold">${parseFloat(o.price || 0).toFixed(2)} €</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function toggleNativeFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+        if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    }
+}
+
+// Iniciar tema guardado y efectos al arrancar
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        initWorkshopTheme();
+        initCardTiltEffect();
+    });
+} else {
+    initWorkshopTheme();
+    initCardTiltEffect();
+}
+
+// Window bindings para la Suite Visual
+window.cycleWorkshopThemes = cycleWorkshopThemes;
+window.applyThemeById = applyThemeById;
+window.initCardTiltEffect = initCardTiltEffect;
+window.openWorkshopKioskModal = openWorkshopKioskModal;
+window.updateKioskClock = updateKioskClock;
+window.renderKioskOrders = renderKioskOrders;
+window.toggleNativeFullscreen = toggleNativeFullscreen;
+

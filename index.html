@@ -180,8 +180,11 @@
           <button class="btn-outline btn-sm d-none d-lg-inline-flex" onclick="openPaymentConfigModal()" title="Configurar enlaces directos de cobro (Bizum / Revolut / PayPal)">
             <i class="fa-solid fa-credit-card text-emerald"></i> <span>Cobro Rápido</span>
           </button>
-          <button class="btn-outline btn-sm" onclick="toggleDarkMode()" id="btn-dark-mode" title="Cambiar tema">
-            <i class="fa-solid fa-circle-half-stroke"></i> <span class="d-none d-sm-inline">Tema</span>
+          <button class="btn-outline btn-sm" onclick="cycleWorkshopThemes()" id="btn-theme-switcher" title="Cambiar tema visual (Bambu / Cyberpunk / Dark / Light)">
+            <i class="fa-solid fa-palette text-cyan"></i> <span id="theme-name-text" class="d-none d-sm-inline">Tema</span>
+          </button>
+          <button class="btn-outline btn-sm d-none d-md-inline-flex" onclick="openWorkshopKioskModal()" title="Modo Pantalla Completa / Monitor TV del Taller">
+            <i class="fa-solid fa-desktop text-amber"></i> <span class="d-none d-lg-inline">Monitor TV</span>
           </button>
           <div class="advanced-only d-none d-md-inline-flex" style="gap: 6px;">
             <button class="btn-outline btn-sm" onclick="openQRScanner()" title="Escanear QR de Bobina/Paquete">
@@ -3712,6 +3715,109 @@
       <div class="modal-footer d-flex justify-content-between">
         <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-batch-plate')">Cancelar</button>
         <button type="button" class="btn-success btn-sm" onclick="launchBatchPlate()"><i class="fa-solid fa-play mr-1"></i> Lanzar Bandeja a Fabricación</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 31: Monitor TV / Modo Pantalla de Taller (Kiosk Fullscreen) -->
+  <div id="modal-workshop-kiosk" class="modal-overlay">
+    <div class="modal-content" style="max-width: 95vw; width: 1200px; max-height: 92vh; background: #070b14; border: 1px solid rgba(0, 210, 255, 0.4); padding: 24px;">
+      <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom border-secondary flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-3">
+          <div class="brand-logo" style="width: 42px; height: 42px; font-size: 20px;"><i class="fa-solid fa-cube"></i></div>
+          <div>
+            <h3 class="m-0 text-white font-mono" style="font-size: 20px; letter-spacing: -0.5px;">PRINT3D STUDIO • MONITOR DE TALLER</h3>
+            <span class="text-xs text-muted">Centro de Control en Vivo para TV / Monitor de Pared</span>
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+          <div class="text-right">
+            <div id="kiosk-digital-clock" class="font-mono text-cyan fw-bold" style="font-size: 28px; line-height: 1;">00:00:00</div>
+            <div id="kiosk-date-display" class="text-xs text-muted">Cargando fecha...</div>
+          </div>
+          <button class="btn-outline btn-sm text-cyan" onclick="toggleNativeFullscreen()" title="Pantalla Completa Real"><i class="fa-solid fa-expand"></i></button>
+          <button class="btn-outline btn-sm" onclick="closeModal('modal-workshop-kiosk')"><i class="fa-solid fa-times"></i> Salir</button>
+        </div>
+      </div>
+
+      <div class="modal-body p-0">
+        <!-- Telemetría en Vivo de Impresoras en Grande -->
+        <div class="grid-2 mb-4" style="gap: 16px;">
+          <!-- Tarjeta Bambu Lab A1 -->
+          <div class="p-4 rounded" style="background: linear-gradient(145deg, rgba(16, 185, 129, 0.08), rgba(6, 10, 20, 0.95)); border: 1px solid rgba(16, 185, 129, 0.35); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div class="d-flex align-items-center gap-2">
+                <span class="live-dot" style="width: 12px; height: 12px; background: #10b981; border-radius: 50%; box-shadow: 0 0 10px #10b981;"></span>
+                <strong class="text-white text-base">BAMBU LAB A1</strong>
+              </div>
+              <span class="badge bg-emerald" id="kiosk-bambu-badge">IMPRIMIENDO (65%)</span>
+            </div>
+            <div class="grid-4 text-center gap-2 mb-3">
+              <div class="p-2 rounded bg-dark border border-secondary">
+                <span class="text-xs text-muted d-block">Nozzle / Hotend</span>
+                <strong class="text-cyan font-mono" style="font-size: 22px;" id="kiosk-bambu-nozzle">220°C</strong>
+              </div>
+              <div class="p-2 rounded bg-dark border border-secondary">
+                <span class="text-xs text-muted d-block">Cama Caliente</span>
+                <strong class="text-amber font-mono" style="font-size: 22px;" id="kiosk-bambu-bed">60°C</strong>
+              </div>
+              <div class="p-2 rounded bg-dark border border-secondary">
+                <span class="text-xs text-muted d-block">Capa en Curso</span>
+                <strong class="text-emerald font-mono" style="font-size: 22px;" id="kiosk-bambu-layer">224/350</strong>
+              </div>
+              <div class="p-2 rounded bg-dark border border-secondary">
+                <span class="text-xs text-muted d-block">Tiempo Restante</span>
+                <strong class="text-white font-mono" style="font-size: 22px;" id="kiosk-bambu-time">~65 min</strong>
+              </div>
+            </div>
+            <div style="height: 10px; background: rgba(255,255,255,0.08); border-radius: 5px; overflow: hidden;">
+              <div id="kiosk-bambu-progress-bar" style="width: 65%; height: 100%; background: linear-gradient(90deg, #00d2ff, #10b981); transition: width 0.5s ease;"></div>
+            </div>
+          </div>
+
+          <!-- Tarjeta Anycubic S1 Max -->
+          <div class="p-4 rounded" style="background: linear-gradient(145deg, rgba(0, 210, 255, 0.06), rgba(6, 10, 20, 0.95)); border: 1px solid rgba(0, 210, 255, 0.3); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div class="d-flex align-items-center gap-2">
+                <span class="live-dot" style="width: 12px; height: 12px; background: #00d2ff; border-radius: 50%; box-shadow: 0 0 10px #00d2ff;"></span>
+                <strong class="text-white text-base">ANYCUBIC S1 MAX</strong>
+              </div>
+              <span class="badge bg-primary">EN ESPERA / LISTA</span>
+            </div>
+            <div class="grid-3 text-center gap-2 mb-3">
+              <div class="p-2 rounded bg-dark border border-secondary">
+                <span class="text-xs text-muted d-block">Boquilla</span>
+                <strong class="text-cyan font-mono" style="font-size: 20px;">0.4 mm</strong>
+              </div>
+              <div class="p-2 rounded bg-dark border border-secondary">
+                <span class="text-xs text-muted d-block">Consumo Estimado</span>
+                <strong class="text-amber font-mono" style="font-size: 20px;">~300W</strong>
+              </div>
+              <div class="p-2 rounded bg-dark border border-secondary">
+                <span class="text-xs text-muted d-block">Cámara IP</span>
+                <strong class="text-emerald font-mono" style="font-size: 20px;">En Línea</strong>
+              </div>
+            </div>
+            <div class="p-2 rounded bg-dark border border-secondary text-center text-xs text-muted">
+              Máquina lista para asignación de nuevos encargos de gran volumen
+            </div>
+          </div>
+        </div>
+
+        <!-- Pedidos Activos del Taller en Vivo -->
+        <div class="panel p-3" style="background: rgba(13, 21, 38, 0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px;">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong class="text-white text-sm"><i class="fa-solid fa-list-check text-cyan mr-1"></i> Encargos en Producción y En Cola</strong>
+            <span class="text-xs text-muted" id="kiosk-orders-summary">Actualizado en vivo</span>
+          </div>
+          <div id="kiosk-orders-grid" class="grid-3 gap-2" style="max-height: 220px; overflow-y: auto;">
+            <!-- Dynamic cards injected by JS -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer pt-3 mt-3 border-top border-secondary d-flex justify-content-between align-items-center">
+        <span class="text-xs text-muted"><i class="fa-solid fa-satellite-dish text-emerald mr-1"></i> Conexión en red local activa (Puerto 3005)</span>
+        <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-workshop-kiosk')">Cerrar Monitor</button>
       </div>
     </div>
   </div>
