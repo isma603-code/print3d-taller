@@ -4346,3 +4346,167 @@ body.sidebar-open-locked {
     page-break-after: avoid !important;
   }
 }
+
+/* ==========================================================================
+   ELEVATED DESIGN REFINEMENT (Linear / Apple Studio Aesthetic)
+   ========================================================================== */
+
+/* 1. Global Typography Smoothing & Proportional Letter-Spacing */
+body, input, button, select, textarea {
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: optimizeLegibility !important;
+}
+
+h1, h2, h3, h4, h5, .panel-title, .brand-title {
+  letter-spacing: -0.025em !important;
+  font-weight: 700 !important;
+}
+
+.kpi-value, .kanban-card-price, .catalog-price-val {
+  letter-spacing: -0.035em !important;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11' !important;
+}
+
+/* 2. Top Rim Bevel Lighting (Glass / Anodized Aluminum Highlights) */
+.panel, 
+.kpi-card, 
+.card-kpi, 
+.kanban-card, 
+.catalog-card, 
+.printer-card, 
+.filament-card, 
+.modal-content {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 6px 24px -4px rgba(0, 0, 0, 0.45) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 3. Tactile Buttons with Micro-elevation & Active Spring Compression */
+.btn-primary, .btn-success, .btn-outline, .btn-secondary, .btn-danger {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease !important;
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, #00d2ff 0%, #0284c7 100%) !important;
+  color: #030712 !important;
+  font-weight: 700 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 2px 8px rgba(0, 210, 255, 0.35) !important;
+  border: 1px solid rgba(0, 210, 255, 0.5) !important;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1.5px) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 6px 18px rgba(0, 210, 255, 0.5) !important;
+}
+
+.btn-primary:active {
+  transform: translateY(1px) scale(0.985) !important;
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 4px rgba(0, 210, 255, 0.25) !important;
+}
+
+.btn-success {
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 2px 8px rgba(16, 185, 129, 0.35) !important;
+  border: 1px solid rgba(16, 185, 129, 0.5) !important;
+}
+
+.btn-success:hover {
+  transform: translateY(-1.5px) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 6px 18px rgba(16, 185, 129, 0.5) !important;
+}
+
+.btn-success:active {
+  transform: translateY(1px) scale(0.985) !important;
+}
+
+.btn-outline {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #e2e8f0 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+}
+
+.btn-outline:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+}
+
+.btn-outline:active {
+  transform: translateY(1px) scale(0.985) !important;
+}
+
+/* 4. Kanban Column & Card Visual Polish */
+.kanban-column {
+  background: rgba(9, 14, 26, 0.75) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 16px !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.kanban-card {
+  background: linear-gradient(180deg, rgba(19, 29, 52, 0.95), rgba(13, 20, 36, 0.92)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 13px !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 4px 12px -2px rgba(0, 0, 0, 0.4) !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease !important;
+}
+
+.kanban-card:hover {
+  transform: translateY(-3px) !important;
+  border-color: rgba(0, 210, 255, 0.35) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2), 0 12px 26px -4px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* 5. Fluid Content Transitions & Modal Elevation */
+@keyframes sectionFadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.content-section.active {
+  animation: sectionFadeUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+.modal-overlay {
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  background: rgba(3, 7, 18, 0.78) !important;
+  transition: opacity 0.2s ease !important;
+}
+
+.modal-content {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.16), 0 25px 60px -10px rgba(0, 0, 0, 0.85) !important;
+  border-radius: 20px !important;
+}
+
+/* 6. Ultra-thin Minimalist Scrollbars */
+::-webkit-scrollbar {
+  width: 5px !important;
+  height: 5px !important;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-radius: 999px !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 210, 255, 0.4) !important;
+}
+
