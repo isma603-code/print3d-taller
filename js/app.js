@@ -810,7 +810,7 @@ function renderOrdersKanban() {
             
             card.innerHTML = `
                 ${o.photo ? `<div style="width:100%; height:90px; border-radius:6px; overflow:hidden; margin-bottom:8px; background:#000;"><img src="${o.photo}" style="width:100%; height:100%; object-fit:cover;"></div>` : ''}
-                <h4>${escapeHtml(o.title)}</h4>
+                <h4 onclick="openSlideOverInspector('${o.id}')" style="cursor:pointer;" title="Abrir ficha en inspector lateral">${escapeHtml(o.title)}</h4>
                 <div class="kanban-card-client"><i class="fa-solid fa-user"></i> ${escapeHtml(o.client)}</div>
                 
                 <div class="kanban-card-specs">
@@ -885,6 +885,7 @@ function renderOrdersKanban() {
                 <div class="kanban-card-price">${parseFloat(o.price || 0).toFixed(2)} €</div>
 
                 <div class="kanban-card-actions">
+                    <button onclick="openSlideOverInspector('${o.id}')" title="Inspector Lateral Rápido" class="text-cyan"><i class="fa-solid fa-sliders"></i></button>
                     <button onclick="editOrder('${o.id}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
                     <button onclick="advanceOrderStatus('${o.id}')" title="Avanzar Estado" class="text-cyan"><i class="fa-solid fa-arrow-right"></i></button>
                     <button onclick="shareClientTracking('${o.id}')" title="Portal Seguimiento Cliente (WhatsApp)" class="text-cyan"><i class="fa-solid fa-satellite-dish"></i></button>
@@ -978,6 +979,7 @@ function handleDrop(e, status) {
     e.preventDefault();
     e.currentTarget.classList.remove('drag-over');
     if (draggedOrderId) {
+        playDropSound();
         updateOrderStatus(draggedOrderId, status);
     }
 }
@@ -3442,6 +3444,7 @@ function init3DViewer() {
 
     // Realistic Build Plate (Bambu / Anycubic PEI Plate 256x256mm style)
     const plateGroup = new THREE.Group();
+    currentPlateGroup = plateGroup;
     const plateGeo = new THREE.BoxGeometry(3.6, 0.05, 3.6);
     const plateMat = new THREE.MeshStandardMaterial({
         color: 0x181c28,
@@ -3589,11 +3592,28 @@ function startTelemetrySimulation() {
         const bed = document.getElementById('tele-bed-temp');
         const lay = document.getElementById('tele-layer-count');
         
-        if (noz) noz.textContent = `${210 + Math.floor(Math.random() * 4)}°C`;
-        if (bed) bed.textContent = `${60 + Math.floor(Math.random() * 2)}°C`;
+        const nozVal = 210 + Math.floor(Math.random() * 5);
+        const bedVal = 60 + Math.floor(Math.random() * 2);
+
+        if (noz) noz.textContent = `${nozVal}.4°C`;
+        if (bed) bed.textContent = `${bedVal}.1°C`;
         if (lay) {
             layer = (layer + 1) % 450;
             lay.textContent = `${layer} / 450`;
+        }
+
+        // Animar arcos SVG radiales dinámicos
+        const nozPath = document.getElementById('gauge-nozzle-path');
+        if (nozPath) {
+            const pct = Math.min(100, Math.round((nozVal / 280) * 100));
+            nozPath.setAttribute('stroke-dasharray', `${pct}, 100`);
+            nozPath.setAttribute('stroke', nozVal >= 200 ? '#ef4444' : (nozVal >= 100 ? '#f59e0b' : '#00d2ff'));
+        }
+        const bedPath = document.getElementById('gauge-bed-path');
+        if (bedPath) {
+            const pct = Math.min(100, Math.round((bedVal / 100) * 100));
+            bedPath.setAttribute('stroke-dasharray', `${pct}, 100`);
+            bedPath.setAttribute('stroke', bedVal >= 55 ? '#f59e0b' : '#00d2ff');
         }
     }, 2500);
 }
@@ -7851,10 +7871,12 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         initWorkshopTheme();
         initCardTiltEffect();
+        initInterfaceDensity();
     });
 } else {
     initWorkshopTheme();
     initCardTiltEffect();
+    initInterfaceDensity();
 }
 
 // Window bindings para la Suite Visual
@@ -7865,4 +7887,392 @@ window.openWorkshopKioskModal = openWorkshopKioskModal;
 window.updateKioskClock = updateKioskClock;
 window.renderKioskOrders = renderKioskOrders;
 window.toggleNativeFullscreen = toggleNativeFullscreen;
+
+// ==========================================================================
+// 35. SUITE DE DISEÑO, ERGONOMÍA & FUNCIONALIDAD INTERACTIVA
+// ==========================================================================
+
+// --- 1. Conmutador de Densidad de Pantalla ---
+function initInterfaceDensity() {
+    const saved = localStorage.getItem('PRINT3D_DENSITY');
+    if (saved === 'compact') {
+        document.body.classList.add('compact-density');
+        const icon = document.getElementById('density-icon');
+        const text = document.getElementById('density-text');
+        if (icon) icon.className = 'fa-solid fa-expand text-emerald';
+        if (text) text.textContent = 'Espacioso';
+    }
+}
+
+function toggleInterfaceDensity() {
+    const isCompact = document.body.classList.toggle('compact-density');
+    const icon = document.getElementById('density-icon');
+    const text = document.getElementById('density-text');
+    if (isCompact) {
+        localStorage.setItem('PRINT3D_DENSITY', 'compact');
+        if (icon) icon.className = 'fa-solid fa-expand text-emerald';
+        if (text) text.textContent = 'Espacioso';
+        showToast('Modo Taller Compacto activado', 'info');
+    } else {
+        localStorage.setItem('PRINT3D_DENSITY', 'spacious');
+        if (icon) icon.className = 'fa-solid fa-compress text-cyan';
+        if (text) text.textContent = 'Compacto';
+        showToast('Modo Estudio Espacioso activado', 'info');
+    }
+}
+
+// --- 2. Sonido Háptico de Taller al Soltar en Kanban (Web Audio API) ---
+function playDropSound() {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(220, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(70, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.09);
+    } catch (e) {}
+}
+
+// --- 3. Selector de Cama en 3D & Verificador de Dimensiones (Bambu A1 vs Anycubic Max) ---
+let currentViewerBed = 'bambu';
+
+function setViewerBuildPlate(type) {
+    currentViewerBed = type;
+    const btnBambu = document.getElementById('btn-bed-bambu');
+    const btnAnycubic = document.getElementById('btn-bed-anycubic');
+    if (btnBambu) {
+        btnBambu.className = (type === 'bambu') ? 'btn-primary btn-xs active' : 'btn-outline btn-xs';
+    }
+    if (btnAnycubic) {
+        btnAnycubic.className = (type === 'anycubic') ? 'btn-primary btn-xs active' : 'btn-outline btn-xs';
+    }
+
+    if (scene && typeof THREE !== 'undefined' && currentPlateGroup) {
+        scene.remove(currentPlateGroup);
+        currentPlateGroup = new THREE.Group();
+        const size = (type === 'bambu') ? 3.4 : 5.4; // 256mm vs 420mm
+        const divisions = (type === 'bambu') ? 16 : 24;
+        const plateColor = (type === 'bambu') ? 0x181c28 : 0x0f1420;
+
+        const plateGeo = new THREE.BoxGeometry(size, 0.05, size);
+        const plateMat = new THREE.MeshStandardMaterial({
+            color: plateColor,
+            roughness: 0.85,
+            metalness: 0.25
+        });
+        const plateMesh = new THREE.Mesh(plateGeo, plateMat);
+        plateMesh.position.y = -0.92;
+        currentPlateGroup.add(plateMesh);
+
+        const gridColor = (type === 'bambu') ? 0x00d2ff : 0xa855f7;
+        const grid = new THREE.GridHelper(size, divisions, gridColor, 0x273656);
+        grid.position.y = -0.89;
+        currentPlateGroup.add(grid);
+
+        const shadowGeo = new THREE.CircleGeometry(size * 0.35, 32);
+        const shadowMat = new THREE.MeshBasicMaterial({
+            color: 0x000000,
+            transparent: true,
+            opacity: 0.35
+        });
+        const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+        shadowMesh.rotation.x = -Math.PI / 2;
+        shadowMesh.position.y = -0.88;
+        currentPlateGroup.add(shadowMesh);
+
+        scene.add(currentPlateGroup);
+    }
+    checkModelBuildPlateFit();
+}
+
+function checkModelBuildPlateFit() {
+    const badge = document.getElementById('bed-fit-badge');
+    const weightInput = document.getElementById('calc-weight');
+    const weight = parseFloat(weightInput ? weightInput.value : 0) || 0;
+    
+    // Si la pieza supera 950g o volumen grande en Bambu A1
+    const isTooBigForBambu = (currentViewerBed === 'bambu' && weight > 950);
+    if (badge) {
+        if (isTooBigForBambu) {
+            badge.className = 'badge bg-danger text-xs';
+            badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1"></i> ¡Alerta: Supera el volumen de Bambu A1 (Imprimir en Anycubic Max)!';
+        } else {
+            badge.className = 'badge bg-emerald text-xs';
+            badge.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> Cabe perfectamente en ${currentViewerBed === 'bambu' ? 'Bambu A1 (256mm)' : 'Anycubic S1 Max (420mm)'}`;
+        }
+    }
+}
+
+function zoomIn3D() {
+    if (camera && camera.position.z > 2.0) {
+        camera.position.z -= 0.6;
+    }
+}
+
+function zoomOut3D() {
+    if (camera && camera.position.z < 9.0) {
+        camera.position.z += 0.6;
+    }
+}
+
+// --- 4. Mural de Muestras de Filamento (Filament Swatches View) ---
+let currentFilamentViewMode = 'spools';
+
+function setFilamentViewMode(mode) {
+    currentFilamentViewMode = mode;
+    const btnSpools = document.getElementById('btn-fil-view-spools');
+    const btnSwatches = document.getElementById('btn-fil-view-swatches');
+    const gridSpools = document.getElementById('filaments-grid');
+    const gridSwatches = document.getElementById('filament-swatches-grid');
+
+    if (btnSpools) btnSpools.className = (mode === 'spools') ? 'btn-primary btn-sm active' : 'btn-outline btn-sm';
+    if (btnSwatches) btnSwatches.className = (mode === 'swatches') ? 'btn-primary btn-sm active' : 'btn-outline btn-sm';
+
+    if (mode === 'spools') {
+        if (gridSpools) gridSpools.style.display = 'grid';
+        if (gridSwatches) gridSwatches.style.display = 'none';
+        renderFilaments();
+    } else {
+        if (gridSpools) gridSpools.style.display = 'none';
+        if (gridSwatches) gridSwatches.style.display = 'grid';
+        renderFilamentSwatches();
+    }
+}
+
+function renderFilamentSwatches() {
+    const container = document.getElementById('filament-swatches-grid');
+    if (!container) return;
+
+    const searchTerm = (document.getElementById('filter-filament-search')?.value || '').toLowerCase();
+    const filtered = (state.filaments || []).filter(f => 
+        !searchTerm || 
+        (f.material && f.material.toLowerCase().includes(searchTerm)) || 
+        (f.brand && f.brand.toLowerCase().includes(searchTerm)) || 
+        (f.colorName && f.colorName.toLowerCase().includes(searchTerm))
+    );
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="p-4 text-center text-muted col-span-4">No hay filamentos que coincidan con la búsqueda</div>';
+        return;
+    }
+
+    container.innerHTML = '';
+    filtered.forEach(f => {
+        const hex = f.hex || '#6366f1';
+        const maxW = f.maxWeight || 1000;
+        const curW = f.currentWeight || 0;
+        const pct = Math.max(0, Math.min(100, Math.round((curW / maxW) * 100)));
+        const isLow = pct < 20;
+
+        const card = document.createElement('div');
+        card.className = 'filament-swatch-card';
+        card.innerHTML = `
+            <div class="swatch-plate-preview" style="background: linear-gradient(135deg, ${hex}dd, ${hex}88);">
+                <div class="swatch-stepped-layers">
+                    <div class="swatch-step-pill swatch-step-1" style="background:${hex};" title="Capa 0.2mm (Transparencia)"></div>
+                    <div class="swatch-step-pill swatch-step-2" style="background:${hex};" title="Capa 0.4mm (Densidad media)"></div>
+                    <div class="swatch-step-pill swatch-step-3" style="background:${hex};" title="Capa 0.8mm (Color sólido)"></div>
+                </div>
+                <div class="swatch-embossed-label text-white">
+                    ${escapeHtml(f.material)} • ${escapeHtml(f.brand)}
+                </div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <strong class="text-white text-sm">${escapeHtml(f.colorName)}</strong>
+                <span class="badge ${isLow ? 'bg-danger' : 'bg-primary'} text-xs font-mono">${curW}g (${pct}%)</span>
+            </div>
+            <div class="text-xs text-muted mb-2 font-mono">
+                ${f.costPerKg ? parseFloat(f.costPerKg).toFixed(2) + ' €/kg' : '—'} • ${escapeHtml(hex)}
+            </div>
+            <div class="progress-bar mb-3" style="height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                <div style="width: ${pct}%; height: 100%; background: ${isLow ? '#ef4444' : hex}; transition: width 0.3s ease;"></div>
+            </div>
+            <div class="d-flex justify-content-between gap-2 mt-auto">
+                <button type="button" class="btn-outline btn-xs flex-1 text-cyan" onclick="filterOrdersByFilament('${f.id}')" title="Ver encargos que usan este filamento"><i class="fa-solid fa-filter mr-1"></i> Encargos</button>
+                <button type="button" class="btn-outline btn-xs" onclick="editFilament('${f.id}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function filterOrdersByFilament(filId) {
+    const fil = state.filaments.find(f => f.id === filId);
+    if (!fil) return;
+    switchTab('tab-orders');
+    const input = document.getElementById('filter-orders-search');
+    if (input) {
+        input.value = fil.colorName || fil.material;
+        renderOrders();
+    }
+    showToast(`Mostrando pedidos con ${fil.material} (${fil.colorName})`, 'info');
+}
+
+// --- 5. Slide-Over Inspector Drawer (Panel Lateral de Edición Rápida) ---
+let currentInspectorOrderId = null;
+
+function openSlideOverInspector(id) {
+    const order = state.orders.find(o => o.id === id);
+    if (!order) return;
+    currentInspectorOrderId = id;
+
+    const drawer = document.getElementById('slide-over-inspector');
+    if (!drawer) return;
+
+    document.getElementById('inspector-order-id').textContent = `#${order.id.substring(0, 8)}`;
+    const statusBadge = document.getElementById('inspector-order-status-badge');
+    if (statusBadge) {
+        statusBadge.className = `badge ${getBadgeClass(order.status)}`;
+        statusBadge.textContent = order.status;
+    }
+
+    const fil = state.filaments.find(f => f.id === order.filamentId);
+    const printer = state.printers.find(p => p.id === order.printerId);
+
+    const body = document.getElementById('inspector-body');
+    if (body) {
+        body.innerHTML = `
+            ${order.photo ? `
+            <div style="width: 100%; height: 160px; border-radius: 12px; overflow: hidden; background: #000; border: 1px solid rgba(255,255,255,0.1);">
+                <img src="${order.photo}" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+            ` : ''}
+
+            <div>
+                <h3 class="text-white text-lg fw-bold mb-1">${escapeHtml(order.title)}</h3>
+                <div class="d-flex align-items-center gap-2 text-sm text-cyan">
+                    <i class="fa-solid fa-user"></i> <strong>${escapeHtml(order.client)}</strong>
+                    <button type="button" class="btn-outline btn-xs ml-auto text-emerald" onclick="sendBudgetWhatsApp('${order.id}')" title="Contactar por WhatsApp"><i class="fa-brands fa-whatsapp mr-1"></i> WhatsApp</button>
+                </div>
+            </div>
+
+            <!-- Selectores de Estado Rápido -->
+            <div class="p-3 rounded" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);">
+                <div class="text-xs text-muted mb-2 fw-bold"><i class="fa-solid fa-arrows-spin mr-1 text-cyan"></i> Cambiar Estado al Instante:</div>
+                <div class="d-flex gap-1 flex-wrap">
+                    ${['Presupuesto', 'En Cola', 'Imprimiendo', 'Post-Proceso', 'Listo', 'Entregado'].map(st => `
+                        <button type="button" class="btn-xs ${order.status === st ? 'btn-primary' : 'btn-outline'}" onclick="setInspectorOrderStatus('${order.id}', '${st}')" style="border-radius: 6px;">
+                            ${st}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+
+            <!-- Especificaciones Técnicas y Máquina -->
+            <div class="grid-2 gap-2 text-xs">
+                <div class="p-2 rounded bg-dark border border-secondary">
+                    <span class="text-muted d-block">Material / Color:</span>
+                    <strong class="text-white d-flex align-items-center gap-1 mt-1">
+                        <span style="width:10px; height:10px; border-radius:50%; background:${fil?.hex || '#00d2ff'}; display:inline-block;"></span>
+                        ${escapeHtml(fil ? `${fil.brand} ${fil.material}` : 'Estándar')}
+                    </strong>
+                </div>
+                <div class="p-2 rounded bg-dark border border-secondary">
+                    <span class="text-muted d-block">Impresora Asignada:</span>
+                    <strong class="text-cyan mt-1 d-block"><i class="fa-solid fa-print mr-1"></i> ${escapeHtml(printer ? printer.name : 'Bambu Lab A1')}</strong>
+                </div>
+                <div class="p-2 rounded bg-dark border border-secondary">
+                    <span class="text-muted d-block">Consumo & Tiempo:</span>
+                    <strong class="text-amber mt-1 d-block"><i class="fa-solid fa-weight-scale mr-1"></i> ${order.weight || 0}g • <i class="fa-solid fa-clock ml-1 mr-1"></i> ${order.time || 0}h</strong>
+                </div>
+                <div class="p-2 rounded bg-dark border border-secondary">
+                    <span class="text-muted d-block">Precio Final:</span>
+                    <strong class="text-emerald mt-1 d-block font-mono" style="font-size:14px;">${parseFloat(order.price || 0).toFixed(2)} €</strong>
+                </div>
+            </div>
+
+            <!-- Notas Rápidas de Taller con Auto-Guardado -->
+            <div class="form-group">
+                <label class="form-label text-xs text-muted d-flex justify-content-between">
+                    <span><i class="fa-solid fa-note-sticky text-amber mr-1"></i> Notas del Taller (Auto-guardado):</span>
+                    <span id="inspector-notes-status" class="text-emerald text-xs" style="display:none;">Guardado ✓</span>
+                </label>
+                <textarea class="form-control text-xs" rows="3" placeholder="Ej. Usar soportes de árbol en el mentón, boquilla 0.4mm..." oninput="saveInspectorQuickNotes('${order.id}', this.value)">${escapeHtml(order.notes || '')}</textarea>
+            </div>
+
+            <!-- Acciones Rápidas del Pedido -->
+            <div class="d-flex flex-column gap-2 mt-2">
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn-primary btn-sm flex-1" onclick="editOrder('${order.id}'); closeSlideOverInspector();"><i class="fa-solid fa-pen mr-1"></i> Editar Completo</button>
+                    <button type="button" class="btn-outline btn-sm flex-1" onclick="showTicketModal('${order.id}')"><i class="fa-solid fa-receipt mr-1"></i> Ver Ticket</button>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn-outline btn-sm flex-1 text-purple" onclick="openShippingLabelModal('${order.id}')"><i class="fa-solid fa-box-open mr-1"></i> Etiqueta Envío</button>
+                    <button type="button" class="btn-outline btn-sm flex-1 text-danger" onclick="deleteOrder('${order.id}'); closeSlideOverInspector();"><i class="fa-solid fa-trash mr-1"></i> Eliminar</button>
+                </div>
+            </div>
+        `;
+    }
+
+    drawer.classList.add('active');
+}
+
+function closeSlideOverInspector() {
+    const drawer = document.getElementById('slide-over-inspector');
+    if (drawer) drawer.classList.remove('active');
+    currentInspectorOrderId = null;
+}
+
+function setInspectorOrderStatus(id, newStatus) {
+    updateOrderStatus(id, newStatus);
+    openSlideOverInspector(id);
+}
+
+function saveInspectorQuickNotes(id, text) {
+    const order = state.orders.find(o => o.id === id);
+    if (!order) return;
+    order.notes = text;
+    saveState();
+    const statusMsg = document.getElementById('inspector-notes-status');
+    if (statusMsg) {
+        statusMsg.style.display = 'inline';
+        setTimeout(() => { if (statusMsg) statusMsg.style.display = 'none'; }, 1500);
+    }
+}
+
+// --- 6. Paleta de Comandos HUD (Acciones Rápidas en 1 Clic) ---
+function executeQuickAction(action) {
+    closeGlobalSearch();
+    if (action === 'new-order') {
+        openOrderModalWithDefaults();
+    } else if (action === 'calc') {
+        switchTab('tab-calculator');
+    } else if (action === 'kiosk') {
+        openWorkshopKioskModal();
+    } else if (action === 'swatches') {
+        switchTab('tab-filaments');
+        setFilamentViewMode('swatches');
+    } else if (action === 'new-spool') {
+        openModal('modal-filament');
+    } else if (action === 'density') {
+        toggleInterfaceDensity();
+    } else if (action === 'clean-start') {
+        resetToCleanWorkshop();
+    }
+}
+
+// Window bindings de la Suite de Diseño & Ergonomía
+window.openSlideOverInspector = openSlideOverInspector;
+window.closeSlideOverInspector = closeSlideOverInspector;
+window.setInspectorOrderStatus = setInspectorOrderStatus;
+window.saveInspectorQuickNotes = saveInspectorQuickNotes;
+window.setViewerBuildPlate = setViewerBuildPlate;
+window.checkModelBuildPlateFit = checkModelBuildPlateFit;
+window.zoomIn3D = zoomIn3D;
+window.zoomOut3D = zoomOut3D;
+window.setFilamentViewMode = setFilamentViewMode;
+window.renderFilamentSwatches = renderFilamentSwatches;
+window.filterOrdersByFilament = filterOrdersByFilament;
+window.toggleInterfaceDensity = toggleInterfaceDensity;
+window.executeQuickAction = executeQuickAction;
+window.playDropSound = playDropSound;
+
 

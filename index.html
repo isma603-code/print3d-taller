@@ -183,6 +183,9 @@
           <button class="btn-outline btn-sm" onclick="cycleWorkshopThemes()" id="btn-theme-switcher" title="Cambiar tema visual (Bambu / Cyberpunk / Dark / Light)">
             <i class="fa-solid fa-palette text-cyan"></i> <span id="theme-name-text" class="d-none d-sm-inline">Tema</span>
           </button>
+          <button class="btn-outline btn-sm" id="btn-density-toggle" onclick="toggleInterfaceDensity()" title="Alternar densidad de pantalla (Modo Estudio / Taller Compacto)">
+            <i class="fa-solid fa-compress text-cyan" id="density-icon"></i> <span id="density-text" class="d-none d-xl-inline">Compacto</span>
+          </button>
           <button class="btn-outline btn-sm d-none d-md-inline-flex" onclick="openWorkshopKioskModal()" title="Modo Pantalla Completa / Monitor TV del Taller">
             <i class="fa-solid fa-desktop text-amber"></i> <span class="d-none d-lg-inline">Monitor TV</span>
           </button>
@@ -406,15 +409,33 @@
                   <div class="panel-title text-amber"><i class="fa-solid fa-temperature-three-quarters"></i> Sensores Térmicos</div>
                 </div>
                 <div class="temp-gauge-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                  <div class="temp-gauge-card p-3 bg-dark rounded">
-                    <div class="text-sm text-gray">Extrusor / Nozzle</div>
-                    <div class="text-xl fw-bold" id="tele-nozzle-temp">215.4°C</div>
-                    <div class="text-xs text-gray">Target: 220.0°C</div>
+                  <div class="temp-gauge-card p-3 bg-dark rounded d-flex align-items-center gap-3">
+                    <div class="radial-gauge-wrapper" style="position: relative; width: 62px; height: 62px; flex-shrink: 0;">
+                      <svg viewBox="0 0 36 36" class="radial-gauge-svg" style="width: 100%; height: 100%; transform: rotate(-90deg);">
+                        <path class="gauge-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3.5" />
+                        <path id="gauge-nozzle-path" class="gauge-fill" stroke-dasharray="72, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#ef4444" stroke-width="3.5" stroke-linecap="round" style="transition: stroke-dasharray 0.5s ease, stroke 0.5s ease;" />
+                      </svg>
+                      <i class="fa-solid fa-fire text-danger" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 13px; animation: pulse 1.8s infinite;"></i>
+                    </div>
+                    <div>
+                      <div class="text-xs text-muted">Extrusor / Nozzle</div>
+                      <div class="text-xl fw-bold font-mono text-danger" id="tele-nozzle-temp">215.4°C</div>
+                      <div class="text-xs text-muted">Objetivo: 220.0°C</div>
+                    </div>
                   </div>
-                  <div class="temp-gauge-card p-3 bg-dark rounded">
-                    <div class="text-sm text-gray">Cama Caliente</div>
-                    <div class="text-xl fw-bold text-warning" id="tele-bed-temp">60.1°C</div>
-                    <div class="text-xs text-gray">Target: 60.0°C</div>
+                  <div class="temp-gauge-card p-3 bg-dark rounded d-flex align-items-center gap-3">
+                    <div class="radial-gauge-wrapper" style="position: relative; width: 62px; height: 62px; flex-shrink: 0;">
+                      <svg viewBox="0 0 36 36" class="radial-gauge-svg" style="width: 100%; height: 100%; transform: rotate(-90deg);">
+                        <path class="gauge-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3.5" />
+                        <path id="gauge-bed-path" class="gauge-fill" stroke-dasharray="60, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f59e0b" stroke-width="3.5" stroke-linecap="round" style="transition: stroke-dasharray 0.5s ease, stroke 0.5s ease;" />
+                      </svg>
+                      <i class="fa-solid fa-temperature-arrow-up text-amber" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 13px;"></i>
+                    </div>
+                    <div>
+                      <div class="text-xs text-muted">Cama Caliente</div>
+                      <div class="text-xl fw-bold font-mono text-warning" id="tele-bed-temp">60.1°C</div>
+                      <div class="text-xs text-muted">Objetivo: 60.0°C</div>
+                    </div>
                   </div>
                   <div class="temp-gauge-card p-3 bg-dark rounded">
                     <div class="text-sm text-gray">Ventilador Capa</div>
@@ -586,8 +607,12 @@
           <div class="panel">
             <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
               <div class="panel-title">Inventario de Filamentos</div>
-              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                 <input type="text" id="filter-filament-search" class="form-control" placeholder="Buscar material o color...">
+                <div class="btn-group" role="group">
+                  <button type="button" id="btn-fil-view-spools" class="btn-primary btn-sm active" onclick="setFilamentViewMode('spools')" title="Vista Bobinas 3D"><i class="fa-solid fa-compact-disc"></i> Bobinas</button>
+                  <button type="button" id="btn-fil-view-swatches" class="btn-outline btn-sm" onclick="setFilamentViewMode('swatches')" title="Vista Muestrario Físico"><i class="fa-solid fa-shapes"></i> Muestrario</button>
+                </div>
                 <button class="btn-outline btn-sm text-emerald" onclick="shareColorPaletteWhatsApp()" title="Enviar muestrario de colores en stock al cliente por WhatsApp"><i class="fa-brands fa-whatsapp"></i> Carta de Colores</button>
                 <button class="btn-outline btn-sm text-amber" onclick="openSpoolRemnantsModal()" title="Aprovechar bobinas casi vacías recomendando piezas ideales"><i class="fa-solid fa-recycle"></i> Retales & Sobrantes</button>
                 <button class="btn-outline btn-sm text-cyan" onclick="openMaterialGuideModal()" title="Abrir y enviar comparativa de materiales para clientes"><i class="fa-solid fa-book-open"></i> Guía Materiales</button>
@@ -621,6 +646,9 @@
 
               <div class="grid-3" id="filaments-grid">
                 <!-- Dynamic Content -->
+              </div>
+              <div class="grid-4" id="filament-swatches-grid" style="display: none; gap: 14px;">
+                <!-- Dynamic 3D Physical Swatches injected by JS -->
               </div>
             </div>
           </div>
@@ -833,15 +861,23 @@
 
               <div class="calc-grid" style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 2rem;">
                 <div class="calc-left">
+                  <!-- Selector Visual de Cama de Impresión & Verificador de Dimensiones -->
+                  <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                    <div class="btn-group" role="group">
+                      <button id="btn-bed-bambu" type="button" class="btn-primary btn-xs active" onclick="setViewerBuildPlate('bambu')"><i class="fa-solid fa-cube mr-1"></i> Bambu Lab A1 (256×256 mm)</button>
+                      <button id="btn-bed-anycubic" type="button" class="btn-outline btn-xs" onclick="setViewerBuildPlate('anycubic')"><i class="fa-solid fa-expand mr-1"></i> Anycubic S1 Max (420×420 mm)</button>
+                    </div>
+                    <div id="bed-fit-badge" class="badge bg-emerald text-xs"><i class="fa-solid fa-circle-check mr-1"></i> Dimensiones: OK (Dentro de Cama)</div>
+                  </div>
                   <div class="three-viewer-container" style="position: relative; width: 100%; height: 350px; background: #000; border-radius: 8px; overflow: hidden;">
                     <canvas id="three-canvas" style="width: 100%; height: 100%;"></canvas>
                     <div class="overlay-badge" style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 4px; font-size: 12px; color: #fff;">
                       <i class="fa-solid fa-cube text-cyan"></i> Analizador WebGL Activo
                     </div>
                     <div class="controls" style="position: absolute; bottom: 10px; right: 10px; display: flex; gap: 5px;">
-                      <button class="btn-icon btn-sm bg-dark"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
-                      <button class="btn-icon btn-sm bg-dark"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
-                      <button class="btn-icon btn-sm bg-dark"><i class="fa-solid fa-rotate"></i></button>
+                      <button type="button" class="btn-icon btn-sm bg-dark" onclick="zoomIn3D()" title="Acercar"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+                      <button type="button" class="btn-icon btn-sm bg-dark" onclick="zoomOut3D()" title="Alejar"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+                      <button type="button" class="btn-icon btn-sm bg-dark" onclick="reset3DCamera()" title="Reiniciar Cámara"><i class="fa-solid fa-rotate"></i></button>
                     </div>
                   </div>
                   
@@ -2568,6 +2604,14 @@
         <input type="text" id="global-search-input" class="spotlight-input" placeholder="Buscar pedidos, clientes, bobinas, máquinas, catálogo... (Esc para salir)" oninput="handleGlobalSearchInput(this.value)" onkeydown="handleGlobalSearchKeydown(event)" autocomplete="off">
         <button class="spotlight-esc-btn" onclick="closeGlobalSearch()" title="Cerrar"><i class="fa-solid fa-times"></i></button>
       </div>
+      <div class="spotlight-quick-actions" style="padding: 9px 16px; display: flex; gap: 7px; flex-wrap: wrap; background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.06);">
+        <button type="button" class="btn-outline btn-xs" onclick="executeQuickAction('new-order')" style="border-radius: 20px; font-size: 11px;"><i class="fa-solid fa-plus text-emerald mr-1"></i> Nuevo Encargo</button>
+        <button type="button" class="btn-outline btn-xs" onclick="executeQuickAction('calc')" style="border-radius: 20px; font-size: 11px;"><i class="fa-solid fa-calculator text-cyan mr-1"></i> Calculadora 3D</button>
+        <button type="button" class="btn-outline btn-xs" onclick="executeQuickAction('kiosk')" style="border-radius: 20px; font-size: 11px;"><i class="fa-solid fa-desktop text-amber mr-1"></i> Monitor TV</button>
+        <button type="button" class="btn-outline btn-xs" onclick="executeQuickAction('swatches')" style="border-radius: 20px; font-size: 11px;"><i class="fa-solid fa-shapes text-purple mr-1"></i> Muestrario</button>
+        <button type="button" class="btn-outline btn-xs" onclick="executeQuickAction('new-spool')" style="border-radius: 20px; font-size: 11px;"><i class="fa-solid fa-spool text-cyan mr-1"></i> Bobina</button>
+        <button type="button" class="btn-outline btn-xs" onclick="executeQuickAction('density')" style="border-radius: 20px; font-size: 11px;"><i class="fa-solid fa-compress text-secondary mr-1"></i> Densidad</button>
+      </div>
       <div class="spotlight-filters">
         <button class="spotlight-filter-pill active" onclick="filterGlobalSearchCategory('all', this)"><i class="fa-solid fa-border-all"></i> Todo</button>
         <button class="spotlight-filter-pill" onclick="filterGlobalSearchCategory('orders', this)"><i class="fa-solid fa-list-check"></i> Pedidos</button>
@@ -3818,6 +3862,23 @@
       <div class="modal-footer pt-3 mt-3 border-top border-secondary d-flex justify-content-between align-items-center">
         <span class="text-xs text-muted"><i class="fa-solid fa-satellite-dish text-emerald mr-1"></i> Conexión en red local activa (Puerto 3005)</span>
         <button type="button" class="btn-outline btn-sm" onclick="closeModal('modal-workshop-kiosk')">Cerrar Monitor</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide-Over Inspector Drawer (Panel Lateral Deslizante de Edición Rápida) -->
+  <div id="slide-over-inspector" class="slide-over-inspector">
+    <div class="slide-over-backdrop" onclick="closeSlideOverInspector()"></div>
+    <div class="slide-over-panel">
+      <div class="slide-over-header d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-primary text-xs font-mono" id="inspector-order-id">#ORD-000</span>
+          <span id="inspector-order-status-badge" class="badge">En Cola</span>
+        </div>
+        <button type="button" class="btn-icon btn-sm" onclick="closeSlideOverInspector()" title="Cerrar Inspector"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="slide-over-body" id="inspector-body">
+        <!-- Inyectado dinámicamente por JS -->
       </div>
     </div>
   </div>

@@ -4655,4 +4655,238 @@ body[data-theme="minimal"] {
   will-change: transform;
 }
 
+/* ==========================================================================
+   SUITE DE DISEÑO & EXPERIENCIA INTERACTIVA (SLIDE-OVER, SWATCHES, HUD)
+   ========================================================================== */
+
+/* 1. Slide-Over Inspector Drawer */
+.slide-over-inspector {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  pointer-events: none;
+  visibility: hidden;
+  transition: visibility 0.35s ease;
+}
+
+.slide-over-inspector.active {
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.slide-over-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 8, 16, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.slide-over-inspector.active .slide-over-backdrop {
+  opacity: 1;
+}
+
+.slide-over-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  max-width: 92vw;
+  background: var(--bg-card, #0f172a);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: -15px 0 45px rgba(0, 0, 0, 0.65), 0 0 30px rgba(0, 210, 255, 0.08);
+  transform: translateX(100%);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  z-index: 10001;
+}
+
+.slide-over-inspector.active .slide-over-panel {
+  transform: translateX(0);
+}
+
+.slide-over-header {
+  padding: 16px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.slide-over-body {
+  padding: 22px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 2. Compact Density Mode */
+body.compact-density {
+  --compact-scale: 0.92;
+}
+
+body.compact-density .kpi-card {
+  padding: 12px 14px !important;
+}
+
+body.compact-density .kpi-value {
+  font-size: 1.25rem !important;
+}
+
+body.compact-density .kpi-sub {
+  font-size: 10.5px !important;
+}
+
+body.compact-density .panel {
+  margin-bottom: 14px !important;
+}
+
+body.compact-density .panel-header {
+  padding: 10px 14px !important;
+}
+
+body.compact-density .panel-body {
+  padding: 12px 14px !important;
+}
+
+body.compact-density .kanban-card {
+  padding: 10px 12px !important;
+  margin-bottom: 8px !important;
+  font-size: 12.5px !important;
+}
+
+body.compact-density .kanban-card h4 {
+  font-size: 13.5px !important;
+  margin-bottom: 4px !important;
+}
+
+body.compact-density .kanban-column-header {
+  padding: 8px 12px !important;
+}
+
+body.compact-density .custom-table th, 
+body.compact-density .custom-table td {
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+}
+
+body.compact-density .grid-4, 
+body.compact-density .grid-3, 
+body.compact-density .grid-2 {
+  gap: 10px !important;
+}
+
+/* 3. Kanban Drag & Drop Physics & Glow */
+.kanban-card.dragging {
+  transform: rotate(3.2deg) scale(1.04) !important;
+  box-shadow: 0 25px 45px rgba(0, 0, 0, 0.75), 0 0 25px rgba(0, 210, 255, 0.5) !important;
+  cursor: grabbing !important;
+  opacity: 0.94 !important;
+  z-index: 1000 !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.kanban-cards.drag-over {
+  background: rgba(0, 210, 255, 0.1) !important;
+  border: 2px dashed #00d2ff !important;
+  border-radius: 8px !important;
+  box-shadow: inset 0 0 30px rgba(0, 210, 255, 0.25), 0 0 20px rgba(0, 210, 255, 0.2) !important;
+  animation: columnDropPulse 1.2s infinite alternate !important;
+}
+
+@keyframes columnDropPulse {
+  0% { box-shadow: inset 0 0 15px rgba(0,210,255,0.15); }
+  100% { box-shadow: inset 0 0 35px rgba(0,210,255,0.35); }
+}
+
+/* 4. Filament Swatches Physical 3D Styling */
+.filament-swatch-card {
+  background: linear-gradient(145deg, rgba(255,255,255,0.04), rgba(6,10,20,0.65));
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 14px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.filament-swatch-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  border-color: rgba(0, 210, 255, 0.45);
+  box-shadow: 0 14px 30px rgba(0,0,0,0.5), 0 0 20px rgba(0, 210, 255, 0.25);
+}
+
+.swatch-plate-preview {
+  height: 90px;
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 12px;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.3), inset 0 -3px 6px rgba(0,0,0,0.5);
+  display: flex;
+  align-items: flex-end;
+  padding: 8px;
+}
+
+.swatch-stepped-layers {
+  display: flex;
+  gap: 4px;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.swatch-step-pill {
+  width: 14px;
+  height: 22px;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.3);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.swatch-step-1 { opacity: 0.35; }
+.swatch-step-2 { opacity: 0.65; }
+.swatch-step-3 { opacity: 1.0; }
+
+.swatch-embossed-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  letter-spacing: 0.5px;
+}
+
+/* 5. SVG Radial Thermal Gauges */
+.radial-gauge-wrapper {
+  filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.15));
+}
+
+.radial-gauge-svg path.gauge-fill {
+  transition: stroke-dasharray 0.6s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.6s ease;
+}
+
+/* 6. Command Palette HUD */
+.spotlight-quick-actions button {
+  transition: all 0.2s ease;
+}
+
+.spotlight-quick-actions button:hover {
+  background: rgba(0, 210, 255, 0.15) !important;
+  border-color: #00d2ff !important;
+  color: #fff !important;
+  transform: translateY(-1px);
+}
+
+.spotlight-item.selected {
+  background: rgba(0, 210, 255, 0.15) !important;
+  border-left: 3px solid #00d2ff !important;
+}
+
+
 
